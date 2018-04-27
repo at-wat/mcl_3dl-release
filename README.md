@@ -1,3 +1,26 @@
+## mcl_3dl (lunar) - 0.1.2-0
+
+The packages in the `mcl_3dl` repository were released into the `lunar` distro by running `/usr/local/bin/bloom-release mcl_3dl --track lunar --ros-distro lunar` on `Fri, 27 Apr 2018 03:17:10 -0000`
+
+The `mcl_3dl` package was released.
+
+Version of package(s) in repository `mcl_3dl`:
+
+- upstream repository: https://github.com/at-wat/mcl_3dl.git
+- release repository: https://github.com/at-wat/mcl_3dl-release.git
+- rosdistro version: `0.1.1-0`
+- old version: `0.1.1-0`
+- new version: `0.1.2-0`
+
+Versions of tools used:
+
+- bloom version: `0.6.4`
+- catkin_pkg version: `0.4.1`
+- rosdep version: `0.12.2`
+- rosdistro version: `0.6.8`
+- vcstools version: `0.1.40`
+
+
 ## mcl_3dl (lunar) - 0.1.1-0
 
 The packages in the `mcl_3dl` repository were released into the `lunar` distro by running `/usr/local/bin/bloom-release mcl_3dl --track lunar --ros-distro lunar` on `Wed, 25 Apr 2018 05:19:27 -0000`
