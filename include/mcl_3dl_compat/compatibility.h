@@ -27,8 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef COMPATIBILITY_H
-#define COMPATIBILITY_H
+#ifndef MCL_3DL_COMPAT_COMPATIBILITY_H
+#define MCL_3DL_COMPAT_COMPATIBILITY_H
 
 #include <ros/ros.h>
 
@@ -80,10 +80,10 @@ void checkCompatMode()
     ROS_ERROR_ONCE(
         "======= [Deprecated] %s is run in compatible mode =======\n"
         "=========================================================\n"
-        "Set _compatible:=false to switch to new topic namespaces.\n"
+        "Set _compatible:=%d to switch to new topic namespaces.\n"
         "Compatible mode will be obsolated in the future update.\n"
         "=========================================================",
-        ros::this_node::getName().c_str());
+        ros::this_node::getName().c_str(), current_level);
   }
 }
 std::string getSimplifiedNamespace(ros::NodeHandle &nh)
@@ -196,4 +196,4 @@ ros::ServiceServer advertiseService(
 }
 }  // namespace mcl_3dl_compat
 
-#endif  // COMPATIBILITY_H
+#endif  // MCL_3DL_COMPAT_COMPATIBILITY_H
