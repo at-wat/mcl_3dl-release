@@ -33,7 +33,7 @@
 
 #include <gtest/gtest.h>
 
-#include <chunked_kdtree.h>
+#include <mcl_3dl/chunked_kdtree.h>
 
 TEST(ChunkedKdtreeTest, testRadiusSearch)
 {
@@ -44,7 +44,7 @@ TEST(ChunkedKdtreeTest, testRadiusSearch)
   pc.push_back(pcl::PointXYZ(0.0, 0.2, 0.0));   // 3
   pc.push_back(pcl::PointXYZ(0.0, -0.3, 0.0));  // 4
 
-  ChunkedKdtree<pcl::PointXYZ> kdtree(1.0, 0.3);
+  mcl_3dl::ChunkedKdtree<pcl::PointXYZ> kdtree(1.0, 0.3);
   kdtree.setInputCloud(pc.makeShared());
 
   std::vector<int> id;
@@ -53,37 +53,37 @@ TEST(ChunkedKdtreeTest, testRadiusSearch)
   kdtree.radiusSearch(
       pcl::PointXYZ(0.5, 0.5, 0.5),
       0.3, id, dist, 1);
-  ASSERT_EQ(id.size(), 1);
+  ASSERT_EQ(id.size(), 1u);
   ASSERT_EQ(id[0], 0);
 
   kdtree.radiusSearch(
       pcl::PointXYZ(0.5, 0.4, 0.5),
       0.3, id, dist, 1);
-  ASSERT_EQ(id.size(), 1);
+  ASSERT_EQ(id.size(), 1u);
   ASSERT_EQ(id[0], 0);
 
   kdtree.radiusSearch(
       pcl::PointXYZ(1.05, 0.0, 0.0),
       0.3, id, dist, 1);
-  ASSERT_EQ(id.size(), 1);
+  ASSERT_EQ(id.size(), 1u);
   ASSERT_EQ(id[0], 1);
 
   kdtree.radiusSearch(
       pcl::PointXYZ(1.1, 0.0, 0.0),
       0.3, id, dist, 1);
-  ASSERT_EQ(id.size(), 1);
+  ASSERT_EQ(id.size(), 1u);
   ASSERT_EQ(id[0], 2);
 
   kdtree.radiusSearch(
       pcl::PointXYZ(0.0, -0.05, 0.0),
       0.3, id, dist, 1);
-  ASSERT_EQ(id.size(), 1);
+  ASSERT_EQ(id.size(), 1u);
   ASSERT_EQ(id[0], 3);
 
   kdtree.radiusSearch(
       pcl::PointXYZ(0.0, -0.15, 0.0),
       0.3, id, dist, 1);
-  ASSERT_EQ(id.size(), 1);
+  ASSERT_EQ(id.size(), 1u);
   ASSERT_EQ(id[0], 4);
 }
 
