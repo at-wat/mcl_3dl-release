@@ -1,3 +1,26 @@
+## mcl_3dl (melodic) - 0.1.3-0
+
+The packages in the `mcl_3dl` repository were released into the `melodic` distro by running `/usr/local/bin/bloom-release mcl_3dl --track melodic --ros-distro melodic` on `Sat, 23 Jun 2018 09:48:13 -0000`
+
+The `mcl_3dl` package was released.
+
+Version of package(s) in repository `mcl_3dl`:
+
+- upstream repository: https://github.com/at-wat/mcl_3dl.git
+- release repository: unknown
+- rosdistro version: `null`
+- old version: `null`
+- new version: `0.1.3-0`
+
+Versions of tools used:
+
+- bloom version: `0.6.4`
+- catkin_pkg version: `0.3.9`
+- rosdep version: `0.11.8`
+- rosdistro version: `0.6.2`
+- vcstools version: `0.1.39`
+
+
 ## mcl_3dl (lunar) - 0.1.3-0
 
 The packages in the `mcl_3dl` repository were released into the `lunar` distro by running `/usr/local/bin/bloom-release mcl_3dl --track lunar --ros-distro lunar` on `Sat, 23 Jun 2018 09:25:05 -0000`
