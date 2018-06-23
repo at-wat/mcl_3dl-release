@@ -1,0 +1,12 @@
+Source: ros-lunar-mcl-3dl
+Section: misc
+Priority: extra
+Maintainer: Atsushi Watanabe <atsushi.w@ieee.org>
+Build-Depends: debhelper (>= 9.0.0), libeigen3-dev, ros-lunar-catkin, ros-lunar-cmake-modules, ros-lunar-geometry-msgs, ros-lunar-mcl-3dl-msgs, ros-lunar-nav-msgs, ros-lunar-pcl-ros, ros-lunar-roscpp, ros-lunar-roslint, ros-lunar-rostest, ros-lunar-sensor-msgs, ros-lunar-std-msgs, ros-lunar-std-srvs, ros-lunar-tf, ros-lunar-visualization-msgs
+Homepage: 
+Standards-Version: 3.9.2
+
+Package: ros-lunar-mcl-3dl
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libeigen3-dev, ros-lunar-geometry-msgs, ros-lunar-mcl-3dl-msgs, ros-lunar-nav-msgs, ros-lunar-pcl-ros, ros-lunar-roscpp, ros-lunar-sensor-msgs, ros-lunar-std-msgs, ros-lunar-std-srvs, ros-lunar-tf, ros-lunar-visualization-msgs
+Description: The mcl_3dl package
