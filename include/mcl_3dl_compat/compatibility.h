@@ -86,7 +86,7 @@ void checkCompatMode()
         ros::this_node::getName().c_str(), current_level);
   }
 }
-std::string getSimplifiedNamespace(ros::NodeHandle &nh)
+std::string getSimplifiedNamespace(ros::NodeHandle& nh)
 {
   if (nh.getUnresolvedNamespace() == ros::this_node::getName())
     return std::string("~/");
@@ -96,14 +96,14 @@ std::string getSimplifiedNamespace(ros::NodeHandle &nh)
 }
 template <class M, class T>
 ros::Subscriber subscribe(
-    ros::NodeHandle &nh_new,
-    const std::string &topic_new,
-    ros::NodeHandle &nh_old,
-    const std::string &topic_old,
+    ros::NodeHandle& nh_new,
+    const std::string& topic_new,
+    ros::NodeHandle& nh_old,
+    const std::string& topic_old,
     uint32_t queue_size,
     void (T::*fp)(M) const,
-    T *obj,
-    const ros::TransportHints &transport_hints = ros::TransportHints())
+    T* obj,
+    const ros::TransportHints& transport_hints = ros::TransportHints())
 {
   if (getCompat() != current_level)
   {
@@ -122,14 +122,14 @@ ros::Subscriber subscribe(
 }
 template <class M, class T>
 ros::Subscriber subscribe(
-    ros::NodeHandle &nh_new,
-    const std::string &topic_new,
-    ros::NodeHandle &nh_old,
-    const std::string &topic_old,
+    ros::NodeHandle& nh_new,
+    const std::string& topic_new,
+    ros::NodeHandle& nh_old,
+    const std::string& topic_old,
     uint32_t queue_size,
     void (T::*fp)(M),
-    T *obj,
-    const ros::TransportHints &transport_hints = ros::TransportHints())
+    T* obj,
+    const ros::TransportHints& transport_hints = ros::TransportHints())
 {
   if (getCompat() != current_level)
   {
@@ -148,10 +148,10 @@ ros::Subscriber subscribe(
 }
 template <class M>
 ros::Publisher advertise(
-    ros::NodeHandle &nh_new,
-    const std::string &topic_new,
-    ros::NodeHandle &nh_old,
-    const std::string &topic_old,
+    ros::NodeHandle& nh_new,
+    const std::string& topic_new,
+    ros::NodeHandle& nh_old,
+    const std::string& topic_old,
     uint32_t queue_size,
     bool latch = false)
 {
@@ -172,12 +172,12 @@ ros::Publisher advertise(
 }
 template <class T, class MReq, class MRes>
 ros::ServiceServer advertiseService(
-    ros::NodeHandle &nh_new,
-    const std::string &service_new,
-    ros::NodeHandle &nh_old,
-    const std::string &service_old,
-    bool (T::*srv_func)(MReq &, MRes &),
-    T *obj)
+    ros::NodeHandle& nh_new,
+    const std::string& service_new,
+    ros::NodeHandle& nh_old,
+    const std::string& service_old,
+    bool (T::*srv_func)(MReq&, MRes&),
+    T* obj)
 {
   if (getCompat() != current_level)
   {
@@ -192,6 +192,32 @@ ros::ServiceServer advertiseService(
   else
   {
     return nh_new.advertiseService(service_new, srv_func, obj);
+  }
+}
+
+template <typename T>
+void paramRename(
+    ros::NodeHandle& nh,
+    const std::string& param_name_new,
+    const std::string& param_name_old)
+{
+  if (nh.hasParam(param_name_old))
+  {
+    ROS_ERROR(
+        "Use %s parameter instead of %s",
+        nh.resolveName(param_name_new, false).c_str(),
+        nh.resolveName(param_name_old, false).c_str());
+    if (nh.hasParam(param_name_new))
+    {
+      ROS_ERROR(
+          "%s is also defined. Ignoring %s.",
+          nh.resolveName(param_name_new, false).c_str(),
+          nh.resolveName(param_name_old, false).c_str());
+      return;
+    }
+    T value;
+    nh.getParam(param_name_old, value);
+    nh.setParam(param_name_new, value);
   }
 }
 }  // namespace mcl_3dl_compat
