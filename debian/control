@@ -1,0 +1,12 @@
+Source: ros-lunar-mcl-3dl
+Section: misc
+Priority: extra
+Maintainer: Atsushi Watanabe <atsushi.w@ieee.org>
+Build-Depends: debhelper (>= 9.0.0), libeigen3-dev, ros-lunar-catkin, ros-lunar-geometry-msgs, ros-lunar-mcl-3dl-msgs, ros-lunar-nav-msgs, ros-lunar-pcl-ros, ros-lunar-roscpp, ros-lunar-roslint, ros-lunar-rostest, ros-lunar-rosunit, ros-lunar-sensor-msgs, ros-lunar-std-msgs, ros-lunar-std-srvs, ros-lunar-tf2, ros-lunar-tf2-geometry-msgs, ros-lunar-tf2-ros, ros-lunar-tf2-sensor-msgs, ros-lunar-visualization-msgs
+Homepage: 
+Standards-Version: 3.9.2
+
+Package: ros-lunar-mcl-3dl
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libeigen3-dev, ros-lunar-geometry-msgs, ros-lunar-mcl-3dl-msgs, ros-lunar-nav-msgs, ros-lunar-pcl-ros, ros-lunar-roscpp, ros-lunar-sensor-msgs, ros-lunar-std-msgs, ros-lunar-std-srvs, ros-lunar-tf2, ros-lunar-tf2-geometry-msgs, ros-lunar-tf2-ros, ros-lunar-tf2-sensor-msgs, ros-lunar-visualization-msgs
+Description: 3-D/6-DOF localization for mobile robots with 3-D LIDAR(s)
