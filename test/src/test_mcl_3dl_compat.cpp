@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, the mcl_3dl authors
+ * Copyright (c) 2018, the mcl_3dl authors
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,80 +27,47 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MCL_3DL_FILTER_H
-#define MCL_3DL_FILTER_H
+#include <ros/ros.h>
 
-#include <cmath>
+#include <gtest/gtest.h>
 
-namespace mcl_3dl
+#include <mcl_3dl_compat/compatibility.h>
+
+TEST(Mcl3DlCompat, ParamRename)
 {
-class Filter
+  ros::NodeHandle nh;
+
+  nh.setParam("param1", 1.0);
+  nh.setParam("param2", 2.0);
+  nh.setParam("param2_new", 3.0);
+  nh.setParam("param3_new", 4.0);
+
+  mcl_3dl_compat::paramRename<double>(nh, "param1_new", "param1");
+  mcl_3dl_compat::paramRename<double>(nh, "param2_new", "param2");
+
+  ASSERT_TRUE(nh.hasParam("param1_new"));
+  ASSERT_TRUE(nh.hasParam("param2_new"));
+  ASSERT_TRUE(nh.hasParam("param3_new"));
+
+  double param1;
+  double param2;
+  double param3;
+  nh.getParam("param1_new", param1);
+  nh.getParam("param2_new", param2);
+  nh.getParam("param3_new", param3);
+
+  // Only old parameter is provided for param1.
+  ASSERT_EQ(param1, 1.0);
+  // Both old and new paramters are provided for param2. New one must be active.
+  ASSERT_EQ(param2, 3.0);
+  // Only new paramter is provided for param3.
+  ASSERT_EQ(param3, 4.0);
+}
+
+int main(int argc, char** argv)
 {
-public:
-  enum type_t
-  {
-    FILTER_HPF,
-    FILTER_LPF
-  };
+  testing::InitGoogleTest(&argc, argv);
+  ros::init(argc, argv, "test_mcl_3dl_compat");
 
-protected:
-  type_t type_;
-  float time_const_;
-  float x_;
-  float out_;
-  float k_[4];
-  bool angle_;
-
-public:
-  Filter(const enum type_t type, const float tc, const float out0, const bool angle = false)
-  {
-    angle_ = angle;
-    time_const_ = tc;
-    type_ = type;
-    switch (type_)
-    {
-      case FILTER_LPF:
-        k_[3] = -1 / (1.0 + 2 * time_const_);
-        k_[2] = -k_[3];
-        k_[1] = (1.0 - 2 * time_const_) * k_[3];
-        k_[0] = -k_[1] - 1.0;
-        x_ = (1 - k_[2]) * out0 / k_[3];
-        break;
-      case FILTER_HPF:
-        k_[3] = -1 / (1.0 + 2 * time_const_);
-        k_[2] = -k_[3] * 2 * time_const_;
-        k_[1] = (1.0 - 2 * time_const_) * k_[3];
-        k_[0] = 2 * time_const_ * (-k_[1] + 1.0);
-        x_ = (1 - k_[2]) * out0 / k_[3];
-        break;
-    }
-    out_ = out0;
-  }
-  void set(const float& out0)
-  {
-    x_ = (1 - k_[2]) * out0 / k_[3];
-    out_ = out0;
-  }
-  float in(const float& i)
-  {
-    float in = i;
-    assert(std::isfinite(in));
-
-    if (angle_)
-    {
-      in = out_ + remainder(in - out_, M_PI * 2.0);
-    }
-    x_ = k_[0] * in + k_[1] * x_;
-    out_ = k_[2] * in + k_[3] * x_;
-
-    assert(std::isfinite(out_));
-    return out_;
-  }
-  float get()
-  {
-    return out_;
-  }
-};
-}  // namespace mcl_3dl
-
-#endif  // MCL_3DL_FILTER_H
+  return RUN_ALL_TESTS();
+}
