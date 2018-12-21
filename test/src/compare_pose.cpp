@@ -33,7 +33,7 @@
 
 #include <gtest/gtest.h>
 
-TEST(compare_pose, compare)
+TEST(ComparePose, Compare)
 {
   ros::NodeHandle nh("~");
 
@@ -43,15 +43,15 @@ TEST(compare_pose, compare)
   double error_limit;
   nh.param("error_limit", error_limit, 0.3);
 
-  const boost::function<void(const nav_msgs::Path::ConstPtr &)> cb_path =
-      [&path, &i_path](const nav_msgs::Path::ConstPtr &msg) -> void
+  const boost::function<void(const nav_msgs::Path::ConstPtr&)> cb_path =
+      [&path, &i_path](const nav_msgs::Path::ConstPtr& msg) -> void
   {
     path = *msg;
     i_path = 0;
     fprintf(stderr, "compare_pose: reference received\n");
   };
-  const boost::function<void(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &)> cb_pose =
-      [&path, &i_path, &error_limit](const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &msg) -> void
+  const boost::function<void(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr&)> cb_pose =
+      [&path, &i_path, &error_limit](const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg) -> void
   {
     if (path.poses.size() > 0 && path.poses[i_path].header.stamp < ros::Time::now())
     {
@@ -98,7 +98,7 @@ TEST(compare_pose, compare)
   fprintf(stderr, "compare_pose finished\n");
 }
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
   testing::InitGoogleTest(&argc, argv);
   ros::init(argc, argv, "compare_pose");
