@@ -1,5 +1,9 @@
 # mcl_3dl
 
+[![Build Status](https://travis-ci.org/at-wat/mcl_3dl.svg?branch=master)](https://travis-ci.org/at-wat/mcl_3dl)
+[![codecov](https://codecov.io/gh/at-wat/mcl_3dl/branch/master/graph/badge.svg)](https://codecov.io/gh/at-wat/mcl_3dl)
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+
 ## Package summary
 
 *mcl_3dl* is a ROS node to perform a probabilistic 3-D/6-DOF localization system for mobile robots with 3-D LIDAR(s).
@@ -15,7 +19,12 @@ The node provides classic MCL; currently, it doesn't implement adaptive feature 
 A fundamental algorithm of *mcl_3dl* node is Monte Carlo localization (MCL), aka particle filter localization.
 MCL represents a probabilistic distribution of estimated pose as density and weight of particles and estimates the pose from the distribution.
 
-See [details](doc/Algorithms.md).
+- [Algorithm details](doc/Algorithms.md)
+- [Parameters](doc/Parameters.md)
+
+## Node I/O
+
+![mcl_3dl I/O diagram](doc/images/mcl_3dl_io.png)
 
 ## Install
 
@@ -67,6 +76,14 @@ MarkerArray shows several *mcl_3dl* internal information.
 
 
 A [demo without odometry](doc/DemoWithoutOdometry.md) is also available.
+
+## Contributing
+
+*mcl_3dl package* is developed under [GitHub flow](https://guides.github.com/introduction/flow/).
+Feel free to open new Issue and/or Pull Request.
+
+The code in this repository is following [ROS C++ Style Guide](https://wiki.ros.org/CppStyleGuide).
+A configuration file for clang-format is available at https://github.com/seqsense/ros_style/.
 
 ## License
 
