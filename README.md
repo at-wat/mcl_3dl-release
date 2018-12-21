@@ -1,3 +1,26 @@
+## mcl_3dl (indigo) - 0.1.4-0
+
+The packages in the `mcl_3dl` repository were released into the `indigo` distro by running `/usr/local/bin/bloom-release mcl_3dl --track indigo --ros-distro indigo` on `Fri, 21 Dec 2018 06:52:18 -0000`
+
+The `mcl_3dl` package was released.
+
+Version of package(s) in repository `mcl_3dl`:
+
+- upstream repository: https://github.com/at-wat/mcl_3dl.git
+- release repository: https://github.com/at-wat/mcl_3dl-release.git
+- rosdistro version: `0.1.3-0`
+- old version: `0.1.3-0`
+- new version: `0.1.4-0`
+
+Versions of tools used:
+
+- bloom version: `0.6.9`
+- catkin_pkg version: `0.4.9`
+- rosdep version: `0.13.0`
+- rosdistro version: `0.7.0`
+- vcstools version: `0.1.40`
+
+
 ## mcl_3dl (kinetic) - 0.1.4-0
 
 The packages in the `mcl_3dl` repository were released into the `kinetic` distro by running `/usr/local/bin/bloom-release mcl_3dl --track kinetic --ros-distro kinetic` on `Fri, 21 Dec 2018 06:43:23 -0000`
