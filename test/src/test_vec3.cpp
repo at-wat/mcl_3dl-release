@@ -34,22 +34,22 @@
 
 #include <mcl_3dl/vec3.h>
 
-TEST(Vec3Test, testConstructors)
+TEST(Vec3, Constructors)
 {
   // Test vector elements constructor and copy constructor
   const mcl_3dl::Vec3 a(1.0, 2.0, 3.0);
   const mcl_3dl::Vec3 b(a);
 
   // Test elements
-  ASSERT_TRUE(a.x == 1.0);
-  ASSERT_TRUE(a.y == 2.0);
-  ASSERT_TRUE(a.z == 3.0);
-  ASSERT_TRUE(b.x == 1.0);
-  ASSERT_TRUE(b.y == 2.0);
-  ASSERT_TRUE(b.z == 3.0);
+  ASSERT_TRUE(a.x_ == 1.0);
+  ASSERT_TRUE(a.y_ == 2.0);
+  ASSERT_TRUE(a.z_ == 3.0);
+  ASSERT_TRUE(b.x_ == 1.0);
+  ASSERT_TRUE(b.y_ == 2.0);
+  ASSERT_TRUE(b.z_ == 3.0);
 }
 
-TEST(Vec3Test, testOperators)
+TEST(Vec3, Operators)
 {
   const mcl_3dl::Vec3 a(1.0, 2.0, 3.0);
 
@@ -91,7 +91,7 @@ TEST(Vec3Test, testOperators)
   ASSERT_TRUE(a / 2.0 == a_div);
 }
 
-TEST(Vec3Test, testTimes)
+TEST(Vec3, Times)
 {
   // Check times operation (element-by-element multiplication)
   const mcl_3dl::Vec3 a(1.0, 2.0, 3.0);
@@ -99,7 +99,7 @@ TEST(Vec3Test, testTimes)
   ASSERT_TRUE(a.times(b) == mcl_3dl::Vec3(-4.0, 10.0, 18.0));
 }
 
-TEST(Vec3Test, testNorm)
+TEST(Vec3, Norm)
 {
   // Check norm operations
   const mcl_3dl::Vec3 a(1.0, 2.0, 3.0);
@@ -110,7 +110,7 @@ TEST(Vec3Test, testNorm)
   ASSERT_LT(fabs(b.normalized().norm() - 1.0), 1e-6);
 }
 
-TEST(Vec3Test, testProducts)
+TEST(Vec3, Products)
 {
   // Check cross and dot products
   const int num_samples = 8;
@@ -130,8 +130,8 @@ TEST(Vec3Test, testProducts)
   {
     for (int j = 0; j < num_samples; ++j)
     {
-      const mcl_3dl::Vec3 &a = samples[i];
-      const mcl_3dl::Vec3 &b = samples[j];
+      const mcl_3dl::Vec3& a = samples[i];
+      const mcl_3dl::Vec3& b = samples[j];
 
       // Check dot products based on the distributive property
       ASSERT_LT((a - b).dot(a - b) - a.dot(a) - b.dot(b) + 2.0 * a.dot(b), 1e-6);
@@ -143,7 +143,7 @@ TEST(Vec3Test, testProducts)
   }
 }
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
   testing::InitGoogleTest(&argc, argv);
 
