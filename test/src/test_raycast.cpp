@@ -36,7 +36,7 @@
 #include <mcl_3dl/chunked_kdtree.h>
 #include <mcl_3dl/raycast.h>
 
-TEST(RaycastTest, testCollision)
+TEST(Raycast, Collision)
 {
   pcl::PointCloud<pcl::PointXYZ> pc;
   for (float y = -1.0; y < 1.0; y += 0.1)
@@ -99,7 +99,7 @@ TEST(RaycastTest, testCollision)
   }
 }
 
-TEST(RaycastTest, testCollisionTolerance)
+TEST(Raycast, CollisionTolerance)
 {
   pcl::PointCloud<pcl::PointXYZ> pc;
   for (float y = -1.0; y < 1.0; y += 0.05)
@@ -158,7 +158,7 @@ TEST(RaycastTest, testCollisionTolerance)
     ASSERT_FALSE(collision);
   }
 }
-TEST(RaycastTest, testSinAng)
+TEST(Raycast, SinAng)
 {
   pcl::PointCloud<pcl::PointXYZ> pc;
   for (float y = -1.0; y < 1.0; y += 0.1)
@@ -221,7 +221,7 @@ TEST(RaycastTest, testSinAng)
   }
 }
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
   testing::InitGoogleTest(&argc, argv);
 
