@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, the mcl_3dl authors
+ * Copyright (c) 2018, the mcl_3dl authors
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,80 +27,48 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MCL_3DL_FILTER_H
-#define MCL_3DL_FILTER_H
+#ifndef MCL_3DL_POINT_CLOUD_RANDOM_SAMPLER_H
+#define MCL_3DL_POINT_CLOUD_RANDOM_SAMPLER_H
 
-#include <cmath>
+#include <random>
+
+#include <pcl/point_types.h>
+#include <pcl_ros/point_cloud.h>
 
 namespace mcl_3dl
 {
-class Filter
+class PointCloudRandomSampler
 {
-public:
-  enum type_t
-  {
-    FILTER_HPF,
-    FILTER_LPF
-  };
-
-protected:
-  type_t type_;
-  float time_const_;
-  float x_;
-  float out_;
-  float k_[4];
-  bool angle_;
+private:
+  std::random_device seed_gen_;
+  std::shared_ptr<std::default_random_engine> engine_;
 
 public:
-  Filter(const enum type_t type, const float tc, const float out0, const bool angle = false)
+  PointCloudRandomSampler()
+    : engine_(new std::default_random_engine(seed_gen_()))
   {
-    angle_ = angle;
-    time_const_ = tc;
-    type_ = type;
-    switch (type_)
-    {
-      case FILTER_LPF:
-        k_[3] = -1 / (1.0 + 2 * time_const_);
-        k_[2] = -k_[3];
-        k_[1] = (1.0 - 2 * time_const_) * k_[3];
-        k_[0] = -k_[1] - 1.0;
-        x_ = (1 - k_[2]) * out0 / k_[3];
-        break;
-      case FILTER_HPF:
-        k_[3] = -1 / (1.0 + 2 * time_const_);
-        k_[2] = -k_[3] * 2 * time_const_;
-        k_[1] = (1.0 - 2 * time_const_) * k_[3];
-        k_[0] = 2 * time_const_ * (-k_[1] + 1.0);
-        x_ = (1 - k_[2]) * out0 / k_[3];
-        break;
-    }
-    out_ = out0;
   }
-  void set(const float& out0)
+  template <class POINT_TYPE>
+  typename pcl::PointCloud<POINT_TYPE>::Ptr sample(
+      const typename pcl::PointCloud<POINT_TYPE>::ConstPtr& pc,
+      const size_t num) const
   {
-    x_ = (1 - k_[2]) * out0 / k_[3];
-    out_ = out0;
-  }
-  float in(const float& i)
-  {
-    float in = i;
-    assert(std::isfinite(in));
+    typename pcl::PointCloud<POINT_TYPE>::Ptr output(new pcl::PointCloud<POINT_TYPE>);
+    output->header = pc->header;
 
-    if (angle_)
-    {
-      in = out_ + remainder(in - out_, M_PI * 2.0);
-    }
-    x_ = k_[0] * in + k_[1] * x_;
-    out_ = k_[2] * in + k_[3] * x_;
+    if (pc->points.size() == 0)
+      return output;
 
-    assert(std::isfinite(out_));
-    return out_;
-  }
-  float get()
-  {
-    return out_;
+    output->points.reserve(num);
+    std::uniform_int_distribution<size_t> ud(0, pc->points.size() - 1);
+    for (size_t i = 0; i < num; i++)
+    {
+      output->push_back(pc->points[ud(*engine_)]);
+    }
+
+    return output;
   }
 };
 }  // namespace mcl_3dl
 
-#endif  // MCL_3DL_FILTER_H
+#endif  // MCL_3DL_POINT_CLOUD_RANDOM_SAMPLER_H
