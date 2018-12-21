@@ -6,7 +6,10 @@ find_package(catkin REQUIRED
     roscpp
 
     pcl_ros
-    tf
+    tf2
+    tf2_geometry_msgs
+    tf2_ros
+    tf2_sensor_msgs
 
     geometry_msgs
     mcl_3dl_msgs
@@ -23,7 +26,10 @@ catkin_package(
     roscpp
 
     pcl_ros
-    tf
+    tf2
+    tf2_geometry_msgs
+    tf2_ros
+    tf2_sensor_msgs
 
     geometry_msgs
     mcl_3dl_msgs
@@ -54,7 +60,7 @@ list(REMOVE_ITEM PCL_LIBRARIES
   "vtkRenderingQt"
 )
 
-# Workaround for the bug in PCL(<1.8.1) https://github.com/PointCloudLibrary/pcl/issues/1406
+# Workaround for the bug in PCL<1.8.1 (https://github.com/PointCloudLibrary/pcl/issues/1406)
 remove_definitions(-DDISABLE_LIBUSB-1.0)
 
 include(CheckCXXCompilerFlag)
@@ -68,11 +74,16 @@ else()
   message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
 endif()
 
+# Workaround for PCL-1.7 problem on C++11 (https://github.com/PointCloudLibrary/pcl/issues/619)
+# Debug build without optimization causes Segmentation fault.
+# Set default build type to Release and add -O1 to CXX_FLAGS_DEBUG.
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O1")
 
 
 include_directories(${catkin_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${PCL_INCLUDE_DIR} include)
-link_directories(${Boost_LIBRARY_DIRS} ${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
 # Binary installed pcl provided by Linux distro is built with -march=native
@@ -80,13 +91,18 @@ add_definitions(${PCL_DEFINITIONS})
 # Define PCL_NO_PRECOMPILE to disable using the binary version.
 add_definitions(-DPCL_NO_PRECOMPILE)
 
-add_executable(mcl_3dl src/mcl_3dl.cpp)
+add_executable(mcl_3dl
+  src/lidar_measurement_model_beam.cpp
+  src/lidar_measurement_model_likelihood.cpp
+  src/mcl_3dl.cpp
+)
 target_link_libraries(mcl_3dl ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${PCL_LIBRARIES})
 add_dependencies(mcl_3dl ${catkin_EXPORTED_TARGETS})
 
 
 if(CATKIN_ENABLE_TESTING)
   find_package(rostest REQUIRED)
+  find_package(rosunit REQUIRED)
   add_subdirectory(test)
 
   find_package(roslint REQUIRED)
