@@ -27,64 +27,63 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <cstddef>
-#include <cmath>
-#include <vector>
+#include <pcl/point_types.h>
+#include <pcl_ros/point_cloud.h>
+
+#include <mcl_3dl/point_cloud_random_sampler.h>
 
 #include <gtest/gtest.h>
 
-#include <mcl_3dl/chunked_kdtree.h>
-
-TEST(ChunkedKdtree, RadiusSearch)
+TEST(PointCloudRandomSampler, Sampling)
 {
-  pcl::PointCloud<pcl::PointXYZ> pc;
-  pc.push_back(pcl::PointXYZ(0.5, 0.5, 0.5));   // 0
-  pc.push_back(pcl::PointXYZ(0.8, 0.0, 0.0));   // 1
-  pc.push_back(pcl::PointXYZ(1.3, 0.0, 0.0));   // 2
-  pc.push_back(pcl::PointXYZ(0.0, 0.2, 0.0));   // 3
-  pc.push_back(pcl::PointXYZ(0.0, -0.3, 0.0));  // 4
+  pcl::PointCloud<pcl::PointXYZ>::Ptr pc_input(new pcl::PointCloud<pcl::PointXYZ>);
+  pc_input->width = 1;
+  pc_input->height = 0;
+  pc_input->header.frame_id = "frame0";
+  pc_input->header.stamp = 12345;
 
-  mcl_3dl::ChunkedKdtree<pcl::PointXYZ> kdtree(1.0, 0.3);
-  kdtree.setInputCloud(pc.makeShared());
+  const float points_ref[][3] =
+      {
+        { 10, 11, 12 },
+        { 20, 21, 22 },
+        { 30, 31, 32 }
+      };
+  for (const auto& p_ref : points_ref)
+  {
+    pc_input->push_back(pcl::PointXYZ(p_ref[0], p_ref[1], p_ref[2]));
+  }
 
-  std::vector<int> id;
-  std::vector<float> dist;
+  mcl_3dl::PointCloudRandomSampler sampler;
 
-  kdtree.radiusSearch(
-      pcl::PointXYZ(0.5, 0.5, 0.5),
-      0.3, id, dist, 1);
-  ASSERT_EQ(id.size(), 1u);
-  ASSERT_EQ(id[0], 0);
+  for (size_t num = 1; num < 4; num++)
+  {
+    pcl::PointCloud<pcl::PointXYZ>::Ptr pc_output = sampler.sample<pcl::PointXYZ>(pc_input, num);
 
-  kdtree.radiusSearch(
-      pcl::PointXYZ(0.5, 0.4, 0.5),
-      0.3, id, dist, 1);
-  ASSERT_EQ(id.size(), 1u);
-  ASSERT_EQ(id[0], 0);
+    // Check header and number of the points
+    ASSERT_EQ(pc_output->header.frame_id, pc_input->header.frame_id);
+    ASSERT_EQ(pc_output->header.stamp, pc_input->header.stamp);
+    ASSERT_EQ(pc_output->height, 1u);
+    ASSERT_EQ(pc_output->width, num);
 
-  kdtree.radiusSearch(
-      pcl::PointXYZ(1.05, 0.0, 0.0),
-      0.3, id, dist, 1);
-  ASSERT_EQ(id.size(), 1u);
-  ASSERT_EQ(id[0], 1);
+    // Check that the all sampled points are in the original point array
+    for (const pcl::PointXYZ& p : *pc_output)
+    {
+      bool found = false;
+      for (const auto& p_ref : points_ref)
+      {
+        if (p_ref[0] == p.x && p_ref[1] == p.y && p_ref[2] == p.z)
+        {
+          found = true;
+          break;
+        }
+      }
+      ASSERT_TRUE(found) << "A sampled point is not in the original points array";
+    }
+  }
 
-  kdtree.radiusSearch(
-      pcl::PointXYZ(1.1, 0.0, 0.0),
-      0.3, id, dist, 1);
-  ASSERT_EQ(id.size(), 1u);
-  ASSERT_EQ(id[0], 2);
-
-  kdtree.radiusSearch(
-      pcl::PointXYZ(0.0, -0.05, 0.0),
-      0.3, id, dist, 1);
-  ASSERT_EQ(id.size(), 1u);
-  ASSERT_EQ(id[0], 3);
-
-  kdtree.radiusSearch(
-      pcl::PointXYZ(0.0, -0.15, 0.0),
-      0.3, id, dist, 1);
-  ASSERT_EQ(id.size(), 1u);
-  ASSERT_EQ(id[0], 4);
+  // Make sure that the sampler returns 0 point output for 0 point input
+  pcl::PointCloud<pcl::PointXYZ>::Ptr pc_output0 = sampler.sample<pcl::PointXYZ>(pc_input, 0);
+  ASSERT_EQ(pc_output0->points.size(), 0u);
 }
 
 int main(int argc, char** argv)
