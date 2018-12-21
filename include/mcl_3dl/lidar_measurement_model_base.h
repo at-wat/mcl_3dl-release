@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, the mcl_3dl authors
+ * Copyright (c) 2018, the mcl_3dl authors
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,80 +27,58 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MCL_3DL_FILTER_H
-#define MCL_3DL_FILTER_H
+#ifndef MCL_3DL_LIDAR_MEASUREMENT_MODEL_BASE_H
+#define MCL_3DL_LIDAR_MEASUREMENT_MODEL_BASE_H
 
-#include <cmath>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include <ros/ros.h>
+
+#include <pcl/point_types.h>
+#include <pcl_ros/point_cloud.h>
+
+#include <mcl_3dl/chunked_kdtree.h>
+#include <mcl_3dl/state_6dof.h>
+#include <mcl_3dl/vec3.h>
 
 namespace mcl_3dl
 {
-class Filter
+struct LidarMeasurementResult
+{
+  float likelihood;
+  float quality;
+
+  LidarMeasurementResult(const float likelihood_value, const float quality_value)
+    : likelihood(likelihood_value)
+    , quality(quality_value)
+  {
+  }
+};
+
+class LidarMeasurementModelBase
 {
 public:
-  enum type_t
-  {
-    FILTER_HPF,
-    FILTER_LPF
-  };
+  using Ptr = std::shared_ptr<LidarMeasurementModelBase>;
+  using PointType = pcl::PointXYZI;
 
-protected:
-  type_t type_;
-  float time_const_;
-  float x_;
-  float out_;
-  float k_[4];
-  bool angle_;
+  virtual void loadConfig(
+      const ros::NodeHandle& nh,
+      const std::string& name) = 0;
+  virtual void setGlobalLocalizationStatus(
+      const size_t, const size_t) = 0;
+  virtual float getMaxSearchRange() const = 0;
 
-public:
-  Filter(const enum type_t type, const float tc, const float out0, const bool angle = false)
-  {
-    angle_ = angle;
-    time_const_ = tc;
-    type_ = type;
-    switch (type_)
-    {
-      case FILTER_LPF:
-        k_[3] = -1 / (1.0 + 2 * time_const_);
-        k_[2] = -k_[3];
-        k_[1] = (1.0 - 2 * time_const_) * k_[3];
-        k_[0] = -k_[1] - 1.0;
-        x_ = (1 - k_[2]) * out0 / k_[3];
-        break;
-      case FILTER_HPF:
-        k_[3] = -1 / (1.0 + 2 * time_const_);
-        k_[2] = -k_[3] * 2 * time_const_;
-        k_[1] = (1.0 - 2 * time_const_) * k_[3];
-        k_[0] = 2 * time_const_ * (-k_[1] + 1.0);
-        x_ = (1 - k_[2]) * out0 / k_[3];
-        break;
-    }
-    out_ = out0;
-  }
-  void set(const float& out0)
-  {
-    x_ = (1 - k_[2]) * out0 / k_[3];
-    out_ = out0;
-  }
-  float in(const float& i)
-  {
-    float in = i;
-    assert(std::isfinite(in));
+  virtual pcl::PointCloud<PointType>::Ptr filter(
+      const pcl::PointCloud<PointType>::ConstPtr&) const = 0;
 
-    if (angle_)
-    {
-      in = out_ + remainder(in - out_, M_PI * 2.0);
-    }
-    x_ = k_[0] * in + k_[1] * x_;
-    out_ = k_[2] * in + k_[3] * x_;
-
-    assert(std::isfinite(out_));
-    return out_;
-  }
-  float get()
-  {
-    return out_;
-  }
+  virtual LidarMeasurementResult measure(
+      ChunkedKdtree<PointType>::Ptr&,
+      const pcl::PointCloud<PointType>::ConstPtr&,
+      const std::vector<Vec3>&,
+      const State6DOF&) const = 0;
 };
 }  // namespace mcl_3dl
 
-#endif  // MCL_3DL_FILTER_H
+#endif  // MCL_3DL_LIDAR_MEASUREMENT_MODEL_BASE_H
