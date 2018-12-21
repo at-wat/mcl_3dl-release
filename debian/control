@@ -1,0 +1,12 @@
+Source: ros-indigo-mcl-3dl
+Section: misc
+Priority: extra
+Maintainer: Atsushi Watanabe <atsushi.w@ieee.org>
+Build-Depends: debhelper (>= 9.0.0), libeigen3-dev, ros-indigo-catkin, ros-indigo-geometry-msgs, ros-indigo-mcl-3dl-msgs, ros-indigo-nav-msgs, ros-indigo-pcl-ros, ros-indigo-roscpp, ros-indigo-roslint, ros-indigo-rostest, ros-indigo-rosunit, ros-indigo-sensor-msgs, ros-indigo-std-msgs, ros-indigo-std-srvs, ros-indigo-tf2, ros-indigo-tf2-geometry-msgs, ros-indigo-tf2-ros, ros-indigo-tf2-sensor-msgs, ros-indigo-visualization-msgs
+Homepage: 
+Standards-Version: 3.9.2
+
+Package: ros-indigo-mcl-3dl
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libeigen3-dev, ros-indigo-geometry-msgs, ros-indigo-mcl-3dl-msgs, ros-indigo-nav-msgs, ros-indigo-pcl-ros, ros-indigo-roscpp, ros-indigo-sensor-msgs, ros-indigo-std-msgs, ros-indigo-std-srvs, ros-indigo-tf2, ros-indigo-tf2-geometry-msgs, ros-indigo-tf2-ros, ros-indigo-tf2-sensor-msgs, ros-indigo-visualization-msgs
+Description: 3-D/6-DOF localization for mobile robots with 3-D LIDAR(s)
