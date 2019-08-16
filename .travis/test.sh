@@ -2,22 +2,18 @@
 
 set -o errexit
 
-pip install gh-pr-comment catkin_lint
-
 source /opt/ros/${ROS_DISTRO}/setup.bash
-
-set -o verbose
-
 cd /catkin_ws
 
+build_number="[[#${TRAVIS_BUILD_NUMBER}](${TRAVIS_BUILD_WEB_URL})]"
 
-pkgs=`find . -name package.xml | xargs -n1 dirname`
+pkgs=$(find . -name package.xml | xargs -n1 dirname)
 catkin_lint $pkgs \
-  || (gh-pr-comment "[#${TRAVIS_BUILD_NUMBER}] FAILED on ${ROS_DISTRO}" \
+  || (gh-pr-comment "${build_number} FAILED on ${ROS_DISTRO}" \
       "<details><summary>catkin_lint failed</summary>
 
 \`\`\`
-`catkin_lint $pkgs 2>&1`
+$(catkin_lint $pkgs 2>&1)
 \`\`\`
 </details>"; false)
 
@@ -33,33 +29,35 @@ sed -i -e '5a set(CMAKE_CXX_FLAGS "-Wall -Werror -O1 -coverage")' \
 CM_OPTIONS=''
 
 catkin_make -DMCL_3DL_EXTRA_TESTS=ON ${CM_OPTIONS} || \
-  (gh-pr-comment "[#${TRAVIS_BUILD_NUMBER}] FAILED on ${ROS_DISTRO}" '```catkin_make``` failed'; false)
+  (gh-pr-comment "${build_number} FAILED on ${ROS_DISTRO}" '```catkin_make``` failed'; false)
 catkin_make tests -DMCL_3DL_EXTRA_TESTS=ON ${CM_OPTIONS} || \
-  (gh-pr-comment "[#${TRAVIS_BUILD_NUMBER}] FAILED on ${ROS_DISTRO}" '```catkin_make tests``` failed'; false)
+  (gh-pr-comment "${build_number} FAILED on ${ROS_DISTRO}" '```catkin_make tests``` failed'; false)
 catkin_make run_tests -DMCL_3DL_EXTRA_TESTS=ON ${CM_OPTIONS} || \
-  (gh-pr-comment "[#${TRAVIS_BUILD_NUMBER}] FAILED on ${ROS_DISTRO}" '```catkin_make run_tests``` failed'; false)
+  (gh-pr-comment "${build_number} FAILED on ${ROS_DISTRO}" '```catkin_make run_tests``` failed'; false)
 
 if [ catkin_test_results ];
 then
   result_text="
 \`\`\`
-`catkin_test_results --all | grep -v Skipping || true`
+$(catkin_test_results --all | grep -v Skipping || true)
 \`\`\`
 "
 else
   result_text="
 \`\`\`
-`catkin_test_results --all | grep -v Skipping || true`
+$(catkin_test_results --all | grep -v Skipping || true)
 \`\`\`
-`find build/test_results/ -name *.xml | xargs -n 1 -- bash -c 'echo; echo \#\#\# $0; echo; echo \\\`\\\`\\\`; xmllint --format $0; echo \\\`\\\`\\\`;'`
+$(find build/test_results/ -name *.xml | xargs -n 1 -- bash -c 'echo; echo \#\#\# $0; echo; echo \\\`\\\`\\\`; xmllint --format $0; echo \\\`\\\`\\\`;')
 "
 fi
-catkin_test_results || (gh-pr-comment "[#${TRAVIS_BUILD_NUMBER}] FAILED on ${ROS_DISTRO}" "<details><summary>Test failed</summary>
+catkin_test_results || (gh-pr-comment "${build_number} FAILED on ${ROS_DISTRO}" "<details><summary>Test failed</summary>
 
 $result_text</details>"; false)
 
-(cd src/mcl_3dl/; cp -r /catkin_ws/build ./; bash <(curl -s https://codecov.io/bash) -y .codecov.yml)
+(cd src/mcl_3dl/;
+  cp -r /catkin_ws/build ./;
+  bash <(curl -s https://codecov.io/bash) -y .codecov.yml 2> /dev/null)
 
-gh-pr-comment "[#${TRAVIS_BUILD_NUMBER}] PASSED on ${ROS_DISTRO}" "<details><summary>All tests passed</summary>
+gh-pr-comment "${build_number} PASSED on ${ROS_DISTRO}" "<details><summary>All tests passed</summary>
 
 $result_text</details>" || true
