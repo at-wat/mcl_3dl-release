@@ -67,14 +67,22 @@
 
 #include <Eigen/Core>
 
+#include <pcl18_backports/voxel_grid.h>
+
 #include <mcl_3dl/chunked_kdtree.h>
 #include <mcl_3dl/filter.h>
+#include <mcl_3dl/imu_measurement_model_base.h>
+#include <mcl_3dl/imu_measurement_models/imu_measurement_model_gravity.h>
 #include <mcl_3dl/lidar_measurement_model_base.h>
 #include <mcl_3dl/lidar_measurement_models/lidar_measurement_model_beam.h>
 #include <mcl_3dl/lidar_measurement_models/lidar_measurement_model_likelihood.h>
+#include <mcl_3dl/motion_prediction_model_base.h>
+#include <mcl_3dl/motion_prediction_models/motion_prediction_model_differential_drive.h>
 #include <mcl_3dl/nd.h>
 #include <mcl_3dl/parameters.h>
 #include <mcl_3dl/pf.h>
+#include <mcl_3dl/point_conversion.h>
+#include <mcl_3dl/point_types.h>
 #include <mcl_3dl/quat.h>
 #include <mcl_3dl/raycast.h>
 #include <mcl_3dl/state_6dof.h>
@@ -87,11 +95,12 @@ namespace mcl_3dl
 class MCL3dlNode
 {
 protected:
+  using PointType = mcl_3dl::PointXYZIL;
   std::shared_ptr<pf::ParticleFilter<State6DOF, float, ParticleWeightedMeanQuat>> pf_;
 
-  class MyPointRepresentation : public pcl::PointRepresentation<pcl::PointXYZI>
+  class MyPointRepresentation : public pcl::PointRepresentation<PointType>
   {
-    using pcl::PointRepresentation<pcl::PointXYZI>::nr_dimensions_;
+    using pcl::PointRepresentation<PointType>::nr_dimensions_;
 
   public:
     MyPointRepresentation()
@@ -99,7 +108,7 @@ protected:
       nr_dimensions_ = 3;
     }
 
-    virtual void copyToFloatArray(const pcl::PointXYZI& p, float* out) const
+    virtual void copyToFloatArray(const PointType& p, float* out) const
     {
       out[0] = p.x;
       out[1] = p.y;
@@ -109,29 +118,26 @@ protected:
   void cbMapcloud(const sensor_msgs::PointCloud2::ConstPtr& msg)
   {
     ROS_INFO("map received");
-    pcl::PointCloud<pcl::PointXYZI> pc_tmp;
-    pcl::fromROSMsg(*msg, pc_tmp);
-
-    if (pc_tmp.points.size() == 0)
+    pcl::PointCloud<PointType>::Ptr pc_tmp(new pcl::PointCloud<PointType>);
+    if (!mcl_3dl::fromROSMsg(*msg, *pc_tmp))
     {
-      ROS_ERROR("Empty map received.");
       has_map_ = false;
       return;
     }
 
-    pc_map_.reset(new pcl::PointCloud<pcl::PointXYZI>);
+    pc_map_.reset(new pcl::PointCloud<PointType>);
     pc_map2_.reset();
     pc_update_.reset();
-    pcl::VoxelGrid<pcl::PointXYZI> ds;
-    ds.setInputCloud(pc_tmp.makeShared());
+    pcl::VoxelGrid18<PointType> ds;
+    ds.setInputCloud(pc_tmp);
     ds.setLeafSize(params_.map_downsample_x_, params_.map_downsample_y_, params_.map_downsample_z_);
     ds.filter(*pc_map_);
-    pc_local_accum_.reset(new pcl::PointCloud<pcl::PointXYZI>);
-    pc_all_accum_.reset(new pcl::PointCloud<pcl::PointXYZI>);
+    pc_local_accum_.reset(new pcl::PointCloud<PointType>);
+    pc_all_accum_.reset(new pcl::PointCloud<PointType>);
     frame_num_ = 0;
     has_map_ = true;
 
-    ROS_INFO("map original: %d points", (int)pc_tmp.points.size());
+    ROS_INFO("map original: %d points", (int)pc_tmp->points.size());
     ROS_INFO("map reduced: %d points", (int)pc_map_->points.size());
 
     cbMapUpdateTimer(ros::TimerEvent());
@@ -139,12 +145,13 @@ protected:
   void cbMapcloudUpdate(const sensor_msgs::PointCloud2::ConstPtr& msg)
   {
     ROS_INFO("map_update received");
-    pcl::PointCloud<pcl::PointXYZI> pc_tmp;
-    pcl::fromROSMsg(*msg, pc_tmp);
+    pcl::PointCloud<PointType>::Ptr pc_tmp(new pcl::PointCloud<PointType>);
+    if (!mcl_3dl::fromROSMsg(*msg, *pc_tmp))
+      return;
 
-    pc_update_.reset(new pcl::PointCloud<pcl::PointXYZI>);
-    pcl::VoxelGrid<pcl::PointXYZI> ds;
-    ds.setInputCloud(pc_tmp.makeShared());
+    pc_update_.reset(new pcl::PointCloud<PointType>);
+    pcl::VoxelGrid18<PointType> ds;
+    ds.setInputCloud(pc_tmp);
     ds.setLeafSize(params_.update_downsample_x_, params_.update_downsample_y_, params_.update_downsample_z_);
     ds.filter(*pc_update_);
   }
@@ -156,8 +163,8 @@ protected:
     pose_in.pose = msg->pose.pose;
     try
     {
-      geometry_msgs::TransformStamped trans =
-          tfbuf_.lookupTransform(frame_ids_["map"], pose_in.header.frame_id, pose_in.header.stamp, ros::Duration(1.0));
+      const geometry_msgs::TransformStamped trans = tfbuf_.lookupTransform(
+          frame_ids_["map"], pose_in.header.frame_id, pose_in.header.stamp, ros::Duration(1.0));
       tf2::doTransform(pose_in, pose, trans);
     }
     catch (tf2::TransformException& e)
@@ -185,6 +192,8 @@ protected:
       s.odom_err_integ_ang_ = Vec3();
     };
     pf_->predict(integ_reset_func);
+
+    publishParticles();
   }
 
   void cbOdom(const nav_msgs::Odometry::ConstPtr& msg)
@@ -214,28 +223,25 @@ protected:
     }
     else if (dt > 0.05)
     {
-      const Vec3 v = odom_prev_.rot_.inv() * (odom_.pos_ - odom_prev_.pos_);
-      const Quat r = odom_prev_.rot_.inv() * odom_.rot_;
-      Vec3 axis;
-      float ang;
-      r.getAxisAng(axis, ang);
-
-      const float trans = v.norm();
-      auto prediction_func = [this, &v, &r, axis, ang, trans, &dt](State6DOF& s)
+      motion_prediction_model_->setOdoms(odom_prev_, odom_, dt);
+      auto prediction_func = [this](State6DOF& s)
       {
-        const Vec3 diff = v * (1.0 + s.noise_ll_) + Vec3(s.noise_al_ * ang, 0.0, 0.0);
-        s.odom_err_integ_lin_ += (diff - v);
-        s.pos_ += s.rot_ * diff;
-        const float yaw_diff = s.noise_la_ * trans + s.noise_aa_ * ang;
-        s.rot_ = Quat(Vec3(0.0, 0.0, 1.0), yaw_diff) * s.rot_ * r;
-        s.rot_.normalize();
-        s.odom_err_integ_ang_ += Vec3(0.0, 0.0, yaw_diff);
-        s.odom_err_integ_lin_ *= (1.0 - dt / params_.odom_err_integ_lin_tc_);
-        s.odom_err_integ_ang_ *= (1.0 - dt / params_.odom_err_integ_ang_tc_);
+        motion_prediction_model_->predict(s);
       };
       pf_->predict(prediction_func);
       odom_last_ = msg->header.stamp;
       odom_prev_ = odom_;
+    }
+    if (fake_imu_)
+    {
+      const Vec3 accel = odom_.rot_ * Vec3(0.0, 0.0, 1.0);
+      sensor_msgs::Imu::Ptr imu(new sensor_msgs::Imu);
+      imu->header = msg->header;
+      imu->linear_acceleration.x = accel.x_;
+      imu->linear_acceleration.y = accel.y_;
+      imu->linear_acceleration.z = accel.z_;
+      imu->orientation = msg->pose.pose.orientation;
+      cbImu(imu);
     }
   }
   void cbCloud(const sensor_msgs::PointCloud2::ConstPtr& msg)
@@ -255,22 +261,24 @@ protected:
     sensor_msgs::PointCloud2 pc_bl;
     try
     {
-      geometry_msgs::TransformStamped trans = tfbuf_.lookupTransform(
+      const geometry_msgs::TransformStamped trans = tfbuf_.lookupTransform(
           frame_ids_["odom"], msg->header.frame_id, msg->header.stamp, ros::Duration(0.1));
       tf2::doTransform(*msg, pc_bl, trans);
     }
     catch (tf2::TransformException& e)
     {
       ROS_INFO("Failed to transform pointcloud: %s", e.what());
-      pc_local_accum_.reset(new pcl::PointCloud<pcl::PointXYZI>);
+      pc_local_accum_.reset(new pcl::PointCloud<PointType>);
       pc_accum_header_.clear();
       return;
     }
-    pcl::PointCloud<pcl::PointXYZI>::Ptr pc_tmp(new pcl::PointCloud<pcl::PointXYZI>);
-    pcl::fromROSMsg(pc_bl, *pc_tmp);
+    pcl::PointCloud<PointType>::Ptr pc_tmp(new pcl::PointCloud<PointType>);
+    if (!mcl_3dl::fromROSMsg(pc_bl, *pc_tmp))
+      return;
+
     for (auto& p : pc_tmp->points)
     {
-      p.intensity = pc_accum_header_.size();
+      p.label = pc_accum_header_.size();
     }
     *pc_local_accum_ += *pc_tmp;
     pc_local_accum_->header.frame_id = frame_ids_["odom"];
@@ -292,24 +300,34 @@ protected:
     cnt_measure_++;
     if (cnt_measure_ % params_.skip_measure_ != 0)
     {
-      pc_local_accum_.reset(new pcl::PointCloud<pcl::PointXYZI>);
+      pc_local_accum_.reset(new pcl::PointCloud<PointType>);
       pc_accum_header_.clear();
       return;
     }
 
     try
     {
-      sensor_msgs::PointCloud2 pc2_tmp;
-      pcl::toROSMsg(*pc_local_accum_, pc2_tmp);
-      geometry_msgs::TransformStamped trans = tfbuf_.lookupTransform(
-          frame_ids_["base_link"], pc2_tmp.header.frame_id, pc2_tmp.header.stamp, ros::Duration(0.1));
-      tf2::doTransform(pc2_tmp, pc2_tmp, trans);
-      pcl::fromROSMsg(pc2_tmp, *pc_local_accum_);
+      const geometry_msgs::TransformStamped trans = tfbuf_.lookupTransform(
+          frame_ids_["base_link"],
+          pc_local_accum_->header.frame_id,
+          pcl_conversions::fromPCL(pc_local_accum_->header.stamp), ros::Duration(0.1));
+
+      const Eigen::Affine3f trans_eigen =
+          Eigen::Translation3f(
+              trans.transform.translation.x,
+              trans.transform.translation.y,
+              trans.transform.translation.z) *
+          Eigen::Quaternionf(
+              trans.transform.rotation.w,
+              trans.transform.rotation.x,
+              trans.transform.rotation.y,
+              trans.transform.rotation.z);
+      pcl::transformPointCloud(*pc_local_accum_, *pc_local_accum_, trans_eigen);
     }
     catch (tf2::TransformException& e)
     {
       ROS_INFO("Failed to transform pointcloud: %s", e.what());
-      pc_local_accum_.reset(new pcl::PointCloud<pcl::PointXYZI>);
+      pc_local_accum_.reset(new pcl::PointCloud<PointType>);
       pc_accum_header_.clear();
       return;
     }
@@ -318,7 +336,7 @@ protected:
     {
       try
       {
-        geometry_msgs::TransformStamped trans = tfbuf_.lookupTransform(
+        const geometry_msgs::TransformStamped trans = tfbuf_.lookupTransform(
             frame_ids_["base_link"], msg->header.stamp, h.frame_id, h.stamp, frame_ids_["odom"]);
         origins.push_back(Vec3(trans.transform.translation.x,
                                trans.transform.translation.y,
@@ -327,7 +345,7 @@ protected:
       catch (tf2::TransformException& e)
       {
         ROS_INFO("Failed to transform pointcloud: %s", e.what());
-        pc_local_accum_.reset(new pcl::PointCloud<pcl::PointXYZI>);
+        pc_local_accum_.reset(new pcl::PointCloud<PointType>);
         pc_accum_header_.clear();
         return;
       }
@@ -335,13 +353,13 @@ protected:
 
     const auto ts = boost::chrono::high_resolution_clock::now();
 
-    pcl::PointCloud<pcl::PointXYZI>::Ptr pc_local_full(new pcl::PointCloud<pcl::PointXYZI>);
-    pcl::VoxelGrid<pcl::PointXYZI> ds;
+    pcl::PointCloud<PointType>::Ptr pc_local_full(new pcl::PointCloud<PointType>);
+    pcl::VoxelGrid18<PointType> ds;
     ds.setInputCloud(pc_local_accum_);
     ds.setLeafSize(params_.downsample_x_, params_.downsample_y_, params_.downsample_z_);
     ds.filter(*pc_local_full);
 
-    std::map<std::string, pcl::PointCloud<pcl::PointXYZI>::Ptr> pc_locals;
+    std::map<std::string, pcl::PointCloud<PointType>::Ptr> pc_locals;
     for (auto& lm : lidar_measurements_)
     {
       lm.second->setGlobalLocalizationStatus(
@@ -429,12 +447,12 @@ protected:
     {
       visualization_msgs::MarkerArray markers;
 
-      pcl::PointCloud<pcl::PointXYZI>::Ptr pc_particle_beam(new pcl::PointCloud<pcl::PointXYZI>);
+      pcl::PointCloud<PointType>::Ptr pc_particle_beam(new pcl::PointCloud<PointType>);
       *pc_particle_beam = *pc_locals["beam"];
       e.transform(*pc_particle_beam);
       for (auto& p : pc_particle_beam->points)
       {
-        const int beam_header_id = lroundf(p.intensity);
+        const int beam_header_id = p.label;
         const Vec3 pos = e.pos_ + e.rot_ * origins[beam_header_id];
         const Vec3 end(p.x, p.y, p.z);
 
@@ -480,8 +498,8 @@ protected:
       const float sin_total_ref = beam_model->getSinTotalRef();
       for (auto& p : pc_particle_beam->points)
       {
-        const int beam_header_id = lroundf(p.intensity);
-        Raycast<pcl::PointXYZI> ray(
+        const int beam_header_id = p.label;
+        Raycast<PointType> ray(
             kdtree_,
             e.pos_ + e.rot_ * origins[beam_header_id],
             Vec3(p.x, p.y, p.z),
@@ -521,7 +539,7 @@ protected:
         }
       }
 
-      pcl::PointCloud<pcl::PointXYZI>::Ptr pc_particle(new pcl::PointCloud<pcl::PointXYZI>);
+      pcl::PointCloud<PointType>::Ptr pc_particle(new pcl::PointCloud<PointType>);
       *pc_particle = *pc_locals["likelihood"];
       e.transform(*pc_particle);
       for (auto& p : pc_particle->points)
@@ -637,7 +655,12 @@ protected:
     if (publish_tf_)
       tfb_.sendTransform(transforms);
 
-    auto cov = pf_->covariance();
+    // Calculate covariance from sampled particles to reduce calculation cost on global localization.
+    // Use the number of original particles or at least 10% of full particles.
+    auto cov = pf_->covariance(
+        1.0,
+        std::max(
+            0.1f, static_cast<float>(params_.num_particles_) / pf_->getParticleSize()));
 
     geometry_msgs::PoseWithCovarianceStamped pose;
     pose.header.stamp = msg->header.stamp;
@@ -673,7 +696,7 @@ protected:
 
     if (output_pcd_)
     {
-      pcl::PointCloud<pcl::PointXYZI>::Ptr pc_particle(new pcl::PointCloud<pcl::PointXYZI>);
+      pcl::PointCloud<PointType>::Ptr pc_particle(new pcl::PointCloud<PointType>);
       *pc_particle = *pc_locals["likelihood"];
       e.transform(*pc_particle);
       *pc_all_accum_ += *pc_particle;
@@ -692,7 +715,7 @@ protected:
       pc_unmatch.header.stamp = msg->header.stamp;
       pc_unmatch.header.frame_id = frame_ids_["map"];
 
-      pcl::PointCloud<pcl::PointXYZI>::Ptr pc_local(new pcl::PointCloud<pcl::PointXYZI>);
+      pcl::PointCloud<PointType>::Ptr pc_local(new pcl::PointCloud<PointType>);
       *pc_local = *pc_local_full;
 
       e.transform(*pc_local);
@@ -730,27 +753,7 @@ protected:
       }
     }
 
-    geometry_msgs::PoseArray pa;
-    if (has_odom_)
-      pa.header.stamp = odom_last_ + tf_tolerance_base_ + *params_.tf_tolerance_;
-    else
-      pa.header.stamp = ros::Time::now() + tf_tolerance_base_ + *params_.tf_tolerance_;
-    pa.header.frame_id = frame_ids_["map"];
-    for (size_t i = 0; i < pf_->getParticleSize(); i++)
-    {
-      geometry_msgs::Pose pm;
-      auto p = pf_->getParticle(i);
-      p.rot_.normalize();
-      pm.position.x = p.pos_.x_;
-      pm.position.y = p.pos_.y_;
-      pm.position.z = p.pos_.z_;
-      pm.orientation.x = p.rot_.x_;
-      pm.orientation.y = p.rot_.y_;
-      pm.orientation.z = p.rot_.z_;
-      pm.orientation.w = p.rot_.w_;
-      pa.poses.push_back(pm);
-    }
-    pub_particle_.publish(pa);
+    publishParticles();
 
     pf_->resample(State6DOF(
         Vec3(params_.resample_var_x_,
@@ -808,7 +811,7 @@ protected:
                params_.expansion_var_yaw_)));
       status.status = mcl_3dl_msgs::Status::EXPANSION_RESETTING;
     }
-    pc_local_accum_.reset(new pcl::PointCloud<pcl::PointXYZI>);
+    pc_local_accum_.reset(new pcl::PointCloud<PointType>);
     pc_accum_header_.clear();
 
     ros::Time localized_current = ros::Time::now();
@@ -871,9 +874,20 @@ protected:
            rot_rpy.z_)
               .finished();
 
-      return nd(diff_vec);
+      const auto n = nd(diff_vec);
+      return n;
     };
     pf_->measure(measure_func);
+
+    pf_->resample(State6DOF(
+        Vec3(params_.resample_var_x_,
+             params_.resample_var_y_,
+             params_.resample_var_z_),
+        Vec3(params_.resample_var_roll_,
+             params_.resample_var_pitch_,
+             params_.resample_var_yaw_)));
+
+    publishParticles();
   }
   void cbImu(const sensor_msgs::Imu::ConstPtr& msg)
   {
@@ -908,13 +922,11 @@ protected:
         in.x = acc_measure.x_;
         in.y = acc_measure.y_;
         in.z = acc_measure.z_;
-        geometry_msgs::TransformStamped trans = tfbuf_.lookupTransform(
-            frame_ids_["base_link"], msg->header.frame_id, msg->header.stamp, ros::Duration(0.1));
+        // assuming imu frame is regit on base_link
+        const geometry_msgs::TransformStamped trans = tfbuf_.lookupTransform(
+            frame_ids_["base_link"], msg->header.frame_id, ros::Time(0));
         tf2::doTransform(in, out, trans);
         acc_measure = Vec3(out.x, out.y, out.z);
-
-        // Static transform
-        trans = tfbuf_.lookupTransform(frame_ids_["base_link"], msg->header.frame_id, ros::Time(0));
 
         imu_quat_.x_ = msg->orientation.x;
         imu_quat_.y_ = msg->orientation.y;
@@ -934,24 +946,34 @@ protected:
       {
         return;
       }
-      const float acc_measure_norm = acc_measure.norm();
-      NormalLikelihood<float> nd(params_.acc_var_);
-      auto imu_measure_func = [this, &nd, &acc_measure, &acc_measure_norm](const State6DOF& s) -> float
+
+      imu_measurement_model_->setAccMeasure(acc_measure);
+      auto imu_measure_func = [this](const State6DOF& s) -> float
       {
-        const Vec3 acc_estim = s.rot_.inv() * Vec3(0.0, 0.0, 1.0);
-        const float diff = acosf(
-            acc_estim.dot(acc_measure) / (acc_measure_norm * acc_estim.norm()));
-        return nd(diff);
+        return imu_measurement_model_->measure(s);
       };
       pf_->measure(imu_measure_func);
 
       imu_last_ = msg->header.stamp;
+
+      if (fake_odom_)
+      {
+        nav_msgs::Odometry::Ptr odom(new nav_msgs::Odometry);
+        odom->header.frame_id = frame_ids_["base_link"];
+        odom->header.stamp = msg->header.stamp;
+        odom->pose.pose.orientation.x = imu_quat_.x_;
+        odom->pose.pose.orientation.y = imu_quat_.y_;
+        odom->pose.pose.orientation.z = imu_quat_.z_;
+        odom->pose.pose.orientation.w = imu_quat_.w_;
+        cbOdom(odom);
+      }
     }
   }
   bool cbResizeParticle(mcl_3dl_msgs::ResizeParticleRequest& request,
                         mcl_3dl_msgs::ResizeParticleResponse& response)
   {
     pf_->resizeParticle(request.size);
+    publishParticles();
     return true;
   }
   bool cbExpansionReset(std_srvs::TriggerRequest& request,
@@ -964,6 +986,7 @@ protected:
         Vec3(params_.expansion_var_roll_,
              params_.expansion_var_pitch_,
              params_.expansion_var_yaw_)));
+    publishParticles();
     return true;
   }
   bool cbGlobalLocalization(std_srvs::TriggerRequest& request,
@@ -975,9 +998,9 @@ protected:
       response.message = "No map received.";
       return true;
     }
-    pcl::PointCloud<pcl::PointXYZI>::Ptr points(new pcl::PointCloud<pcl::PointXYZI>);
+    pcl::PointCloud<PointType>::Ptr points(new pcl::PointCloud<PointType>);
 
-    pcl::VoxelGrid<pcl::PointXYZI> ds;
+    pcl::VoxelGrid18<PointType> ds;
     ds.setInputCloud(pc_map_);
     ds.setLeafSize(
         params_.global_localization_grid_,
@@ -985,10 +1008,14 @@ protected:
         params_.global_localization_grid_);
     ds.filter(*points);
 
-    pcl::KdTreeFLANN<pcl::PointXYZI>::Ptr kdtree(new pcl::KdTreeFLANN<pcl::PointXYZI>);
+    pcl::KdTreeFLANN<PointType>::Ptr kdtree(new pcl::KdTreeFLANN<PointType>);
+    kdtree->setPointRepresentation(
+        boost::dynamic_pointer_cast<
+            pcl::PointRepresentation<PointType>,
+            MyPointRepresentation>(boost::make_shared<MyPointRepresentation>(point_rep_)));
     kdtree->setInputCloud(points);
 
-    auto pc_filter = [this, kdtree](const pcl::PointXYZI& p)
+    auto pc_filter = [this, kdtree](const PointType& p)
     {
       std::vector<int> id(1);
       std::vector<float> sqdist(1);
@@ -1025,28 +1052,71 @@ protected:
       }
     }
     response.success = true;
-    response.message = std::to_string(points->size()) + " particles";
+    response.message = std::to_string(pf_->getParticleSize()) + " particles";
     return true;
   }
 
+  void publishParticles()
+  {
+    geometry_msgs::PoseArray pa;
+    if (has_odom_)
+      pa.header.stamp = odom_last_ + tf_tolerance_base_ + *params_.tf_tolerance_;
+    else
+      pa.header.stamp = ros::Time::now() + tf_tolerance_base_ + *params_.tf_tolerance_;
+    pa.header.frame_id = frame_ids_["map"];
+    for (size_t i = 0; i < pf_->getParticleSize(); i++)
+    {
+      geometry_msgs::Pose pm;
+      auto p = pf_->getParticle(i);
+      p.rot_.normalize();
+      pm.position.x = p.pos_.x_;
+      pm.position.y = p.pos_.y_;
+      pm.position.z = p.pos_.z_;
+      pm.orientation.x = p.rot_.x_;
+      pm.orientation.y = p.rot_.y_;
+      pm.orientation.z = p.rot_.z_;
+      pm.orientation.w = p.rot_.w_;
+      pa.poses.push_back(pm);
+    }
+    pub_particle_.publish(pa);
+  }
+
 public:
-  MCL3dlNode(int argc, char* argv[])
+  MCL3dlNode()
     : nh_("")
     , pnh_("~")
     , tfl_(tfbuf_)
     , global_localization_fix_cnt_(0)
     , engine_(seed_gen_())
   {
+  }
+  bool configure()
+  {
     mcl_3dl_compat::checkCompatMode();
+
+    pnh_.param("fake_imu", fake_imu_, false);
+    pnh_.param("fake_odom", fake_odom_, false);
+    if (fake_imu_ && fake_odom_)
+    {
+      ROS_ERROR("One of IMU and Odometry must be enabled");
+      return false;
+    }
+    if (!fake_odom_)
+    {
+      sub_odom_ = mcl_3dl_compat::subscribe(
+          nh_, "odom",
+          pnh_, "odom", 200, &MCL3dlNode::cbOdom, this);
+    }
+    if (!fake_imu_)
+    {
+      sub_imu_ = mcl_3dl_compat::subscribe(
+          nh_, "imu/data",
+          pnh_, "imu", 200, &MCL3dlNode::cbImu, this);
+    }
+
     sub_cloud_ = mcl_3dl_compat::subscribe(
         nh_, "cloud",
         pnh_, "cloud", 100, &MCL3dlNode::cbCloud, this);
-    sub_odom_ = mcl_3dl_compat::subscribe(
-        nh_, "odom",
-        pnh_, "odom", 200, &MCL3dlNode::cbOdom, this);
-    sub_imu_ = mcl_3dl_compat::subscribe(
-        nh_, "imu/data",
-        pnh_, "imu", 200, &MCL3dlNode::cbImu, this);
     sub_mapcloud_ = mcl_3dl_compat::subscribe(
         nh_, "mapcloud",
         pnh_, "mapcloud", 1, &MCL3dlNode::cbMapcloud, this);
@@ -1118,13 +1188,10 @@ public:
     pnh_.param("map_update_interval_interval", map_update_interval_t, 2.0);
     params_.map_update_interval_.reset(new ros::Duration(map_update_interval_t));
 
-    double weight[3];
     float weight_f[4];
-    pnh_.param("dist_weight_x", weight[0], 1.0);
-    pnh_.param("dist_weight_y", weight[1], 1.0);
-    pnh_.param("dist_weight_z", weight[2], 5.0);
-    for (size_t i = 0; i < 3; i++)
-      weight_f[i] = weight[i];
+    pnh_.param("dist_weight_x", weight_f[0], 1.0f);
+    pnh_.param("dist_weight_y", weight_f[1], 1.0f);
+    pnh_.param("dist_weight_z", weight_f[2], 5.0f);
     weight_f[3] = 0.0;
     point_rep_.setRescaleValues(weight_f);
 
@@ -1236,6 +1303,10 @@ public:
         LidarMeasurementModelBase::Ptr(
             new LidarMeasurementModelBeam(
                 params_.map_downsample_x_, params_.map_downsample_y_, params_.map_downsample_z_));
+    imu_measurement_model_ = ImuMeasurementModelBase::Ptr(new ImuMeasurementModelGravity(params_.acc_var_));
+    motion_prediction_model_ = MotionPredictionModelBase::Ptr(
+        new MotionPredictionModelDifferentialDrive(params_.odom_err_integ_lin_tc_,
+                                                   params_.odom_err_integ_ang_tc_));
 
     float max_search_radius = 0;
     for (auto& lm : lidar_measurements_)
@@ -1247,16 +1318,18 @@ public:
     double map_chunk;
     pnh_.param("map_chunk", map_chunk, 20.0);
     ROS_DEBUG("max_search_radius: %0.3f", max_search_radius);
-    kdtree_.reset(new ChunkedKdtree<pcl::PointXYZI>(map_chunk, max_search_radius));
+    kdtree_.reset(new ChunkedKdtree<PointType>(map_chunk, max_search_radius));
     kdtree_->setEpsilon(params_.map_grid_min_ / 16);
     kdtree_->setPointRepresentation(
         boost::dynamic_pointer_cast<
-            pcl::PointRepresentation<pcl::PointXYZI>,
+            pcl::PointRepresentation<PointType>,
             MyPointRepresentation>(boost::make_shared<MyPointRepresentation>(point_rep_)));
 
     map_update_timer_ = nh_.createTimer(
         *params_.map_update_interval_,
         &MCL3dlNode::cbMapUpdateTimer, this);
+
+    return true;
   }
   ~MCL3dlNode()
   {
@@ -1276,7 +1349,7 @@ public:
       if (pc_update_)
       {
         if (!pc_map2_)
-          pc_map2_.reset(new pcl::PointCloud<pcl::PointXYZI>);
+          pc_map2_.reset(new pcl::PointCloud<PointType>);
         *pc_map2_ = *pc_map_ + *pc_update_;
         pc_update_.reset();
       }
@@ -1336,6 +1409,7 @@ protected:
   bool output_pcd_;
   bool publish_tf_;
 
+  bool fake_imu_, fake_odom_;
   ros::Time match_output_last_;
   ros::Time odom_last_;
   bool has_map_;
@@ -1355,17 +1429,19 @@ protected:
 
   MyPointRepresentation point_rep_;
 
-  pcl::PointCloud<pcl::PointXYZI>::Ptr pc_map_;
-  pcl::PointCloud<pcl::PointXYZI>::Ptr pc_map2_;
-  pcl::PointCloud<pcl::PointXYZI>::Ptr pc_update_;
-  pcl::PointCloud<pcl::PointXYZI>::Ptr pc_all_accum_;
-  pcl::PointCloud<pcl::PointXYZI>::Ptr pc_local_accum_;
-  ChunkedKdtree<pcl::PointXYZI>::Ptr kdtree_;
+  pcl::PointCloud<PointType>::Ptr pc_map_;
+  pcl::PointCloud<PointType>::Ptr pc_map2_;
+  pcl::PointCloud<PointType>::Ptr pc_update_;
+  pcl::PointCloud<PointType>::Ptr pc_all_accum_;
+  pcl::PointCloud<PointType>::Ptr pc_local_accum_;
+  ChunkedKdtree<PointType>::Ptr kdtree_;
   std::vector<std_msgs::Header> pc_accum_header_;
 
   std::map<
       std::string,
       LidarMeasurementModelBase::Ptr> lidar_measurements_;
+  ImuMeasurementModelBase::Ptr imu_measurement_model_;
+  MotionPredictionModelBase::Ptr motion_prediction_model_;
 
   std::random_device seed_gen_;
   std::default_random_engine engine_;
@@ -1376,7 +1452,11 @@ int main(int argc, char* argv[])
 {
   ros::init(argc, argv, "mcl_3dl");
 
-  mcl_3dl::MCL3dlNode mcl(argc, argv);
+  mcl_3dl::MCL3dlNode mcl;
+  if (!mcl.configure())
+  {
+    return 1;
+  }
   ros::spin();
 
   return 0;
