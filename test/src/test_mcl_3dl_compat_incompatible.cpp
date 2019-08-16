@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, the mcl_3dl authors
+ * Copyright (c) 2018, the mcl_3dl authors
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,56 +27,61 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MCL_3DL_ND_H
-#define MCL_3DL_ND_H
+#include <cstdlib>
 
-#define _USE_MATH_DEFINES
-#include <cmath>
-#include <Eigen/Core>
-#include <Eigen/LU>
+#include <ros/ros.h>
 
-namespace mcl_3dl
+#include <gtest/gtest.h>
+
+#define UNDEF_COMPATIBILITY_LEVEL
+
+namespace mcl_3dl_compat
 {
-template <typename FLT_TYPE = float>
-class NormalLikelihood
+int current_level;
+int supported_level;
+int default_level;
+}  // namespace mcl_3dl_compat
+#include <mcl_3dl_compat/compatibility.h>
+
+int test_mode = 0;
+
+TEST(Mcl3DlCompat, CompatMode)
 {
-public:
-  explicit NormalLikelihood(const FLT_TYPE sigma)
-  {
-    a_ = 1.0 / sqrtf(2.0 * M_PI * sigma * sigma);
-    sq2_ = sigma * sigma * 2.0;
-  }
-  FLT_TYPE operator()(const FLT_TYPE x) const
-  {
-    return a_ * expf(-x * x / sq2_);
-  }
+  mcl_3dl_compat::supported_level = 2;
+  mcl_3dl_compat::current_level = 3;
+  mcl_3dl_compat::default_level = mcl_3dl_compat::supported_level;
 
-protected:
-  FLT_TYPE a_;
-  FLT_TYPE sq2_;
-};
+  ros::NodeHandle("~").setParam("compatible", 2);
+  ASSERT_NO_THROW(
+      {
+        mcl_3dl_compat::checkCompatMode();
+      });  // NOLINT(whitespace/braces)
 
-template <typename FLT_TYPE = float, size_t DIMENSION = 6>
-class NormalLikelihoodNd
+  ros::NodeHandle("~").setParam("compatible", 3);
+  ASSERT_NO_THROW(
+      {
+        mcl_3dl_compat::checkCompatMode();
+      });  // NOLINT(whitespace/braces)
+
+  ros::NodeHandle("~").setParam("compatible", test_mode ? 4 : 1);
+  ASSERT_THROW(
+      {
+        mcl_3dl_compat::checkCompatMode();
+      },  // NOLINT(whitespace/braces)
+      std::runtime_error);
+}
+
+int main(int argc, char** argv)
 {
-public:
-  using Matrix = Eigen::Matrix<FLT_TYPE, DIMENSION, DIMENSION>;
-  using Vector = Eigen::Matrix<FLT_TYPE, DIMENSION, 1>;
+  testing::InitGoogleTest(&argc, argv);
+  ros::init(argc, argv, "test_mcl_3dl_compat_incompatible");
 
-  explicit NormalLikelihoodNd(const Matrix sigma)
+  if (argc != 2)
   {
-    a_ = 1.0 / (pow(2.0 * M_PI, 0.5 * DIMENSION) * sqrt(sigma.determinant()));
-    sigma_inv_ = sigma.inverse();
+    std::cerr << "test_mcl_3dl_compat_incompatible must have one argument (0 or 1)" << std::endl;
+    return 1;
   }
-  FLT_TYPE operator()(const Vector x) const
-  {
-    return a_ * expf(-0.5 * x.transpose() * sigma_inv_ * x);
-  }
+  test_mode = std::atoi(argv[1]);
 
-protected:
-  FLT_TYPE a_;
-  Matrix sigma_inv_;
-};
-}  // namespace mcl_3dl
-
-#endif  // MCL_3DL_ND_H
+  return RUN_ALL_TESTS();
+}
