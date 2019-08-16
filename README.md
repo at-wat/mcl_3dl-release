@@ -74,8 +74,13 @@ MarkerArray shows several *mcl_3dl* internal information.
 - Red lines: casted rays in the beam-model calculation
 - Red boxes: detected collisions in raycasting
 
+To try global localization, call `/global_localization` by the following command.
 
-A [demo without odometry](doc/DemoWithoutOdometry.md) is also available.
+```shell
+rosservice call /global_localization
+```
+
+[Demos without odometry and without IMU](doc/ExperimentalDemos.md) are also available.
 
 ## Contributing
 
@@ -87,4 +92,5 @@ A configuration file for clang-format is available at https://github.com/seqsens
 
 ## License
 
-*mcl_3dl* is available under BSD license.
+- *mcl_3dl* is [provided under the BSD license](LICENSE).
+- [Backport codes](include/pcl18_backports) of Point Cloud Library (PCL) is [provided under the BSD license](LICENSE.pcl-backports).
