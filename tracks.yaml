@@ -1,3 +1,4 @@
+release_repo_url: https://github.com/at-wat/mcl_3dl-release.git
 tracks:
   indigo:
     actions:
