@@ -1,0 +1,12 @@
+Source: ros-kinetic-mcl-3dl
+Section: misc
+Priority: optional
+Maintainer: Atsushi Watanabe <atsushi.w@ieee.org>
+Build-Depends: debhelper (>= 9.0.0), libeigen3-dev, ros-kinetic-catkin, ros-kinetic-geometry-msgs, ros-kinetic-mcl-3dl-msgs, ros-kinetic-nav-msgs, ros-kinetic-pcl-ros, ros-kinetic-roscpp, ros-kinetic-roslint, ros-kinetic-rostest, ros-kinetic-rosunit, ros-kinetic-sensor-msgs, ros-kinetic-std-msgs, ros-kinetic-std-srvs, ros-kinetic-tf2, ros-kinetic-tf2-geometry-msgs, ros-kinetic-tf2-ros, ros-kinetic-tf2-sensor-msgs, ros-kinetic-visualization-msgs
+Homepage: 
+Standards-Version: 3.9.2
+
+Package: ros-kinetic-mcl-3dl
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libeigen3-dev, ros-kinetic-geometry-msgs, ros-kinetic-mcl-3dl-msgs, ros-kinetic-nav-msgs, ros-kinetic-pcl-ros, ros-kinetic-roscpp, ros-kinetic-sensor-msgs, ros-kinetic-std-msgs, ros-kinetic-std-srvs, ros-kinetic-tf2, ros-kinetic-tf2-geometry-msgs, ros-kinetic-tf2-ros, ros-kinetic-tf2-sensor-msgs, ros-kinetic-visualization-msgs
+Description: 3-D/6-DOF localization for mobile robots with 3-D LIDAR(s)
