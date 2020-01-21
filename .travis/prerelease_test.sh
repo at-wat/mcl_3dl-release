@@ -35,7 +35,7 @@ git clone \
   -b apt-get-us-east-1 \
   https://github.com/at-wat/ros_buildfarm.git ros_buildfarm
 
-sudo pip3 install ros_buildfarm
+sudo pip3 install ./ros_buildfarm
 
 
 generate_prerelease_script.py \
@@ -43,6 +43,7 @@ generate_prerelease_script.py \
   ${ROS_DISTRO_TARGET} default ubuntu ${UBUNTU_DIST_TARGET} amd64 \
   --custom-repo \
     mcl_3dl__custom-2:git:https://github.com/at-wat/mcl_3dl.git:${TRAVIS_PULL_REQUEST_BRANCH} \
+    mcl_3dl_msgs__custom-2:git:https://github.com/at-wat/mcl_3dl_msgs.git:master \
   --level 1 \
   --output-dir ./
 
