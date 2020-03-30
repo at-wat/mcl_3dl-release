@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, the mcl_3dl authors
+ * Copyright (c) 2020, the mcl_3dl authors
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,66 +26,67 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef MCL_3DL_PARAMETERS_H
-#define MCL_3DL_PARAMETERS_H
+
+#ifndef MCL_3DL_CLOUD_ACCUM_H
+#define MCL_3DL_CLOUD_ACCUM_H
+
+#include <vector>
+#include <string>
+#include <functional>
+
+#include <sensor_msgs/PointCloud2.h>
 
 namespace mcl_3dl
 {
-class Parameters
+class CloudAccumulationLogicBase
 {
 public:
-  double map_downsample_x_;
-  double map_downsample_y_;
-  double map_downsample_z_;
-  double update_downsample_x_;
-  double update_downsample_y_;
-  double update_downsample_z_;
-  double map_grid_min_;
-  double map_grid_max_;
-  double global_localization_grid_;
-  int global_localization_div_yaw_;
-  double downsample_x_;
-  double downsample_y_;
-  double downsample_z_;
-  double resample_var_x_;
-  double resample_var_y_;
-  double resample_var_z_;
-  double resample_var_roll_;
-  double resample_var_pitch_;
-  double resample_var_yaw_;
-  double expansion_var_x_;
-  double expansion_var_y_;
-  double expansion_var_z_;
-  double expansion_var_roll_;
-  double expansion_var_pitch_;
-  double expansion_var_yaw_;
-  double match_ratio_thresh_;
-  double jump_dist_;
-  double jump_ang_;
-  double fix_dist_;
-  double fix_ang_;
-  double odom_err_lin_lin_;
-  double odom_err_lin_ang_;
-  double odom_err_ang_lin_;
-  double odom_err_ang_ang_;
-  std::shared_ptr<ros::Duration> map_update_interval_;
-  int num_particles_;
-  int skip_measure_;
-  int accum_cloud_;
-  int total_accum_cloud_max_;
-  double match_output_dist_;
-  double unmatch_output_dist_;
-  double bias_var_dist_;
-  double bias_var_ang_;
-  double acc_var_;
-  double odom_err_integ_lin_tc_;
-  double odom_err_integ_lin_sigma_;
-  double odom_err_integ_ang_tc_;
-  double odom_err_integ_ang_sigma_;
-  std::shared_ptr<ros::Duration> match_output_interval_;
-  std::shared_ptr<ros::Duration> tf_tolerance_;
-  double lpf_step_;
+  using Ptr = std::shared_ptr<CloudAccumulationLogicBase>;
+
+  virtual void push(
+      const std::string& key,
+      const sensor_msgs::PointCloud2::ConstPtr& msg,
+      std::function<void()> process,
+      std::function<bool(const sensor_msgs::PointCloud2::ConstPtr&)> accumulate,
+      std::function<void()> clear) = 0;
+};
+
+class CloudAccumulationLogicPassThrough : public CloudAccumulationLogicBase
+{
+public:
+  void push(
+      const std::string& key,
+      const sensor_msgs::PointCloud2::ConstPtr& msg,
+      std::function<void()> process,
+      std::function<bool(const sensor_msgs::PointCloud2::ConstPtr&)> accumulate,
+      std::function<void()> clear) final;
+};
+
+class CloudAccumulationLogic : public CloudAccumulationLogicBase
+{
+public:
+  inline CloudAccumulationLogic(
+      const size_t accum,
+      const size_t accum_max)
+    : accum_(accum)
+    , accum_max_(accum_max)
+    , cnt_accum_(0)
+  {
+  }
+
+  void push(
+      const std::string& key,
+      const sensor_msgs::PointCloud2::ConstPtr& msg,
+      std::function<void()> process,
+      std::function<bool(const sensor_msgs::PointCloud2::ConstPtr&)> accumulate,
+      std::function<void()> clear) final;
+
+private:
+  size_t accum_;
+  size_t accum_max_;
+  size_t cnt_accum_;
+  std::vector<std::string> keys_;
 };
 }  // namespace mcl_3dl
 
-#endif  // MCL_3DL_PARAMETERS_H
+#endif  // MCL_3DL_CLOUD_ACCUM_H
