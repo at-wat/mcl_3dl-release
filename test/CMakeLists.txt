@@ -1,5 +1,7 @@
 catkin_add_gtest(test_chunked_kdtree src/test_chunked_kdtree.cpp)
 target_link_libraries(test_chunked_kdtree ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+catkin_add_gtest(test_cloud_accum src/test_cloud_accum.cpp ../src/cloud_accum.cpp)
+target_link_libraries(test_cloud_accum ${catkin_LIBRARIES})
 catkin_add_gtest(test_filter src/test_filter.cpp)
 target_link_libraries(test_filter ${catkin_LIBRARIES})
 catkin_add_gtest(test_nd src/test_nd.cpp)
@@ -64,10 +66,10 @@ add_dependencies(test_transform_failure mcl_3dl)
 if(MCL_3DL_EXTRA_TESTS)
 
   catkin_download_test_data(
-      ${PROJECT_NAME}_short_test.bag
-      https://openspur.org/~atsushi.w/dataset/mcl_3dl/short_test.bag
-      MD5 664ecb2824d81247ce4b26c599d99230
-      FILENAME test/short_test.bag)
+      ${PROJECT_NAME}_short_test3.bag
+      https://openspur.org/~atsushi.w/dataset/mcl_3dl/short_test3.bag
+      MD5 7f0f4a2c2c4d569c81cb972d7dc30ca0 
+      FILENAME test/short_test3.bag)
 
   catkin_download_test_data(
       ${PROJECT_NAME}_short_test_ref.topic
@@ -84,21 +86,21 @@ if(MCL_3DL_EXTRA_TESTS)
       src/compare_pose.cpp)
   target_link_libraries(compare_pose ${catkin_LIBRARIES} ${GTEST_LIBRARIES})
   add_dependencies(compare_pose 
-        ${PROJECT_NAME}_short_test.bag
+        ${PROJECT_NAME}_short_test3.bag
         ${PROJECT_NAME}_short_test_ref.topic
         mcl_3dl)
 
   add_rostest(${PROJECT_BINARY_DIR}/test/tests/localization_rostest.test
     DEPENDENCIES
       compare_pose
-      ${PROJECT_NAME}_short_test.bag
+      ${PROJECT_NAME}_short_test3.bag
       ${PROJECT_NAME}_short_test_ref.topic
       mcl_3dl)
   add_rostest(${PROJECT_BINARY_DIR}/test/tests/localization_rostest.test
     ARGS without_imu:=true
     DEPENDENCIES
       compare_pose
-      ${PROJECT_NAME}_short_test.bag
+      ${PROJECT_NAME}_short_test3.bag
       ${PROJECT_NAME}_short_test_ref.topic
       mcl_3dl)
 
@@ -106,7 +108,7 @@ if(MCL_3DL_EXTRA_TESTS)
       src/compare_tf.cpp)
   target_link_libraries(compare_tf ${catkin_LIBRARIES})
   add_dependencies(compare_tf 
-        ${PROJECT_NAME}_short_test.bag
+        ${PROJECT_NAME}_short_test3.bag
         ${PROJECT_NAME}_short_test_ref.topic
         mcl_3dl
       )
