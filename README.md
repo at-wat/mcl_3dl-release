@@ -1,3 +1,26 @@
+## mcl_3dl (noetic) - 0.2.3-1
+
+The packages in the `mcl_3dl` repository were released into the `noetic` distro by running `/usr/local/bin/bloom-release mcl_3dl --track noetic --ros-distro noetic` on `Wed, 08 Apr 2020 05:57:17 -0000`
+
+The `mcl_3dl` package was released.
+
+Version of package(s) in repository `mcl_3dl`:
+
+- upstream repository: https://github.com/at-wat/mcl_3dl.git
+- release repository: unknown
+- rosdistro version: `null`
+- old version: `null`
+- new version: `0.2.3-1`
+
+Versions of tools used:
+
+- bloom version: `0.9.3`
+- catkin_pkg version: `0.4.16`
+- rosdep version: `0.18.0`
+- rosdistro version: `0.8.0`
+- vcstools version: `0.1.42`
+
+
 ## mcl_3dl (melodic) - 0.2.3-1
 
 The packages in the `mcl_3dl` repository were released into the `melodic` distro by running `/usr/bin/bloom-release -y --no-web --ros-distro melodic --override-release-repository-push-url https://github.com/at-wat/mcl_3dl-release.git mcl_3dl` on `Tue, 07 Apr 2020 02:37:58 -0000`
