@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, the mcl_3dl authors
+ * Copyright (c) 2020, the mcl_3dl authors
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -10,8 +10,8 @@
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the copyright holder nor the names of its
- *       contributors may be used to endorse or promote products derived from
+ *     * Neither the name of the copyright holder nor the names of its 
+ *       contributors may be used to endorse or promote products derived from 
  *       this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
@@ -27,40 +27,51 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MCL_3DL_POINT_TYPES_H
-#define MCL_3DL_POINT_TYPES_H
+#ifndef MCL_3DL_FILTER_VEC3_H
+#define MCL_3DL_FILTER_VEC3_H
 
-#include <cstdint>
+#include <array>
 
-#include <pcl/point_types.h>
-#include <pcl/point_cloud.h>
+#include <mcl_3dl/filter.h>
+#include <mcl_3dl/vec3.h>
 
 namespace mcl_3dl
 {
-struct EIGEN_ALIGN16 PointXYZIL
+class FilterVec3
 {
-  PCL_ADD_POINT4D;
-  float intensity;
-  uint32_t label;
+private:
+  Vec3 x_;
+  std::array<Filter, 3> f_;
 
-  inline PointXYZIL()
+public:
+  inline FilterVec3(Filter::type_t type, const Vec3& time_const, const Vec3& out0, const bool angle = false)
+    : x_(out0)
+    , f_(  // clang-format off
+          {
+              Filter(type, time_const[0], out0[0], angle),
+              Filter(type, time_const[1], out0[1], angle),
+              Filter(type, time_const[2], out0[2], angle),
+          }
+        )  // clang-format on
   {
-    x = y = z = 0.0f;
-    data[3] = 1.0f;
-    intensity = 0.0f;
-    label = 0;
   }
-
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  inline void set(const Vec3& out0)
+  {
+    x_ = out0;
+    for (int i = 0; i < 3; i++)
+      f_[i].set(out0[i]);
+  }
+  inline Vec3 in(const Vec3& in)
+  {
+    for (int i = 0; i < 3; i++)
+      x_[i] = f_[i].in(in[i]);
+    return x_;
+  }
+  inline Vec3 get() const
+  {
+    return x_;
+  }
 };
 }  // namespace mcl_3dl
 
-POINT_CLOUD_REGISTER_POINT_STRUCT(
-    mcl_3dl::PointXYZIL,
-    (float, x, x)                  //
-    (float, y, y)                  //
-    (float, z, z)                  //
-    (float, intensity, intensity)  //
-    (std::uint32_t, label, label))
-
-#endif  // MCL_3DL_POINT_TYPES_H
+#endif  // MCL_3DL_FILTER_VEC3_H
