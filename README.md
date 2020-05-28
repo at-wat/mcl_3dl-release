@@ -1,3 +1,26 @@
+## mcl_3dl (kinetic) - 0.2.5-1
+
+The packages in the `mcl_3dl` repository were released into the `kinetic` distro by running `/usr/bin/bloom-release -y --no-web --ros-distro kinetic --override-release-repository-push-url https://github.com/at-wat/mcl_3dl-release.git mcl_3dl` on `Thu, 28 May 2020 01:46:20 -0000`
+
+The `mcl_3dl` package was released.
+
+Version of package(s) in repository `mcl_3dl`:
+
+- upstream repository: https://github.com/at-wat/mcl_3dl.git
+- release repository: https://github.com/at-wat/mcl_3dl-release.git
+- rosdistro version: `0.2.4-1`
+- old version: `0.2.4-1`
+- new version: `0.2.5-1`
+
+Versions of tools used:
+
+- bloom version: `0.9.7`
+- catkin_pkg version: `0.4.20`
+- rosdep version: `0.19.0`
+- rosdistro version: `0.8.2`
+- vcstools version: `0.1.42`
+
+
 ## mcl_3dl (noetic) - 0.2.4-1
 
 The packages in the `mcl_3dl` repository were released into the `noetic` distro by running `/usr/bin/bloom-release -y --no-web --ros-distro noetic --override-release-repository-push-url https://github.com/at-wat/mcl_3dl-release.git mcl_3dl` on `Fri, 08 May 2020 06:57:27 -0000`
