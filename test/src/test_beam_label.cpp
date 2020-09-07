@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, the mcl_3dl authors
+ * Copyright (c) 2020, the mcl_3dl authors
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,21 +27,20 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <random>
+#include <vector>
+
+#include <Eigen/Core>
+
 #include <ros/ros.h>
 
-#include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
-#include <mcl_3dl_msgs/Status.h>
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/point_cloud2_iterator.h>
-#include <std_srvs/Trigger.h>
 #include <tf2/utils.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-
-#include <random>
-#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -51,7 +50,8 @@ void generateSamplePointcloud2(
     sensor_msgs::PointCloud2& cloud,
     const float offset_x,
     const float offset_y,
-    const float offset_z)
+    const float offset_z,
+    const float range)
 {
   cloud.height = 1;
   cloud.is_bigendian = false;
@@ -62,31 +62,23 @@ void generateSamplePointcloud2(
       "x", 1, sensor_msgs::PointField::FLOAT32,
       "y", 1, sensor_msgs::PointField::FLOAT32,
       "z", 1, sensor_msgs::PointField::FLOAT32,
-      "intensity", 1, sensor_msgs::PointField::FLOAT32);
+      "label", 1, sensor_msgs::PointField::UINT32);
 
-  class Point
+  std::vector<Eigen::Vector4d> points;
+  // Floor
+  for (float x = -range; x < range; x += 0.1)
   {
-  public:
-    float x_, y_, z_;
-    Point(const float x, const float y, const float z)
-      : x_(x)
-      , y_(y)
-      , z_(z)
+    for (float y = -range; y < range; y += 0.1)
     {
+      points.emplace_back(x, y, -1.0, 0);
     }
-  };
-  std::vector<Point> points;
-  // Draw cube
-  for (float x = -1; x < 1; x += 0.05)
+  }
+  // Semi-transparent wall
+  for (float x = -0.5; x < 0.5; x += 0.1)
   {
-    for (float y = -1; y < 1; y += 0.05)
+    for (float z = -1.0; z < 0.0; z += 0.1)
     {
-      points.push_back(Point(x / 2 + offset_x, y + offset_y, 1.0 + offset_z));
-      points.push_back(Point(x / 2 + offset_x, y + offset_y, -1.0 + offset_z));
-      points.push_back(Point(1.0 / 2 + offset_x, y + offset_y, x + offset_z));
-      points.push_back(Point(-1.0 / 2 + offset_x, y + offset_y, x + offset_z));
-      points.push_back(Point(x / 2 + offset_x, 1.0 + offset_y, y + offset_z));
-      points.push_back(Point(x / 2 + offset_x, -1.0 + offset_y, y + offset_z));
+      points.emplace_back(x, 1.0, z, 2);
     }
   }
 
@@ -95,15 +87,18 @@ void generateSamplePointcloud2(
   sensor_msgs::PointCloud2Iterator<float> iter_x(cloud, "x");
   sensor_msgs::PointCloud2Iterator<float> iter_y(cloud, "y");
   sensor_msgs::PointCloud2Iterator<float> iter_z(cloud, "z");
+  sensor_msgs::PointCloud2Iterator<uint32_t> iter_label(cloud, "label");
 
-  for (const Point& p : points)
+  for (const Eigen::Vector4d& p : points)
   {
-    *iter_x = p.x_;
-    *iter_y = p.y_;
-    *iter_z = p.z_;
+    *iter_x = p[0] + offset_x;
+    *iter_y = p[1] + offset_y;
+    *iter_z = p[2] + offset_z;
+    *iter_label = static_cast<uint32_t>(p[3]);
     ++iter_x;
     ++iter_y;
     ++iter_z;
+    ++iter_label;
   }
 }
 
@@ -113,14 +108,14 @@ inline sensor_msgs::PointCloud2 generateMapMsg(
     const float offset_z)
 {
   sensor_msgs::PointCloud2 cloud;
-  generateSamplePointcloud2(cloud, offset_x, offset_y, offset_z);
+  generateSamplePointcloud2(cloud, offset_x, offset_y, offset_z, 5.0);
   cloud.header.frame_id = "map";
   return cloud;
 }
 inline sensor_msgs::PointCloud2 generateCloudMsg()
 {
   sensor_msgs::PointCloud2 cloud;
-  generateSamplePointcloud2(cloud, 0, 0, 0);
+  generateSamplePointcloud2(cloud, 0, 0, 0, 2.0);
   cloud.header.frame_id = "base_link";
   cloud.header.stamp = ros::Time::now();
   return cloud;
@@ -149,78 +144,43 @@ inline geometry_msgs::PoseWithCovarianceStamped generateInitialPose()
   pose.header.frame_id = "map";
   pose.header.stamp = ros::Time::now();
   pose.pose.pose.orientation.w = 1.0;
-  pose.pose.covariance[6 * 0 + 0] = 0.05 * 0.05;
-  pose.pose.covariance[6 * 1 + 1] = 0.05 * 0.05;
-  pose.pose.covariance[6 * 2 + 2] = 0.05 * 0.05;
+  pose.pose.covariance[6 * 0 + 0] = std::pow(0.2, 2);
+  pose.pose.covariance[6 * 1 + 1] = std::pow(0.2, 2);
+  pose.pose.covariance[6 * 2 + 2] = std::pow(0.2, 2);
   pose.pose.covariance[6 * 3 + 3] = 0.0;
   pose.pose.covariance[6 * 4 + 4] = 0.0;
-  pose.pose.covariance[6 * 5 + 5] = 0.05 * 0.05;
+  pose.pose.covariance[6 * 5 + 5] = std::pow(0.05, 2);
   return pose;
 }
 }  // namespace
 
-class ExpansionResetting : public ::testing::Test
+class BeamLabel : public ::testing::Test
 {
 protected:
   ros::NodeHandle nh_;
-  ros::Subscriber sub_pose_;
-  ros::Subscriber sub_status_;
   ros::Subscriber sub_pose_cov_;
   ros::Publisher pub_mapcloud_;
   ros::Publisher pub_cloud_;
   ros::Publisher pub_imu_;
   ros::Publisher pub_odom_;
   ros::Publisher pub_init_;
-  ros::ServiceClient src_expansion_resetting_;
 
-  geometry_msgs::PoseArray::ConstPtr poses_;
   geometry_msgs::PoseWithCovarianceStamped::ConstPtr pose_cov_;
-  mcl_3dl_msgs::Status::ConstPtr status_;
 
-  void cbPose(const geometry_msgs::PoseArray::ConstPtr& msg)
-  {
-    poses_ = msg;
-  }
-  void cbStatus(const mcl_3dl_msgs::Status::ConstPtr& msg)
-  {
-    status_ = msg;
-  }
   void cbPoseCov(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg)
   {
     pose_cov_ = msg;
   }
-  bool findTruePose(const tf2::Transform& true_pose)
-  {
-    if (!poses_)
-      return false;
-
-    bool found_true_positive(false);
-    for (const auto& pose : poses_->poses)
-    {
-      tf2::Transform particle_pose;
-      tf2::fromMsg(pose, particle_pose);
-
-      const tf2::Transform tf_diff = particle_pose.inverse() * true_pose;
-      if (tf_diff.getOrigin().length() < 2e-1 &&
-          fabs(tf2::getYaw(tf_diff.getRotation())) < 2e-1)
-        found_true_positive = true;
-    }
-    return found_true_positive;
-  }
 
   void SetUp()
   {
-    ASSERT_TRUE(src_expansion_resetting_.waitForExistence(ros::Duration(10)));
-
     pub_init_.publish(generateInitialPose());
   }
 
 public:
-  ExpansionResetting()
+  BeamLabel()
   {
-    sub_pose_ = nh_.subscribe("mcl_3dl/particles", 1, &ExpansionResetting::cbPose, this);
-    sub_status_ = nh_.subscribe("mcl_3dl/status", 1, &ExpansionResetting::cbStatus, this);
-    sub_pose_cov_ = nh_.subscribe("amcl_pose", 1, &ExpansionResetting::cbPoseCov, this);
+    sub_pose_cov_ = nh_.subscribe("amcl_pose", 1, &BeamLabel::cbPoseCov, this);
 
     pub_mapcloud_ = nh_.advertise<sensor_msgs::PointCloud2>("mapcloud", 1, true);
     pub_cloud_ = nh_.advertise<sensor_msgs::PointCloud2>("cloud", 1);
@@ -228,102 +188,39 @@ public:
     pub_odom_ = nh_.advertise<nav_msgs::Odometry>("odom", 1);
     pub_init_ =
         nh_.advertise<geometry_msgs::PoseWithCovarianceStamped>("initialpose", 1, true);
-
-    src_expansion_resetting_ =
-        nh_.serviceClient<std_srvs::TriggerRequest, std_srvs::TriggerResponse>(
-            "expansion_resetting");
   }
 };
 
-TEST_F(ExpansionResetting, ExpandAndResume)
+TEST_F(BeamLabel, SemiTransparentWall)
 {
-  const float offset_x = 1;
-  const float offset_y = 0;
+  const float offset_x = 0.05;
+  const float offset_y = 0.05;
   const float offset_z = 0;
   pub_mapcloud_.publish(generateMapMsg(offset_x, offset_y, offset_z));
 
   ros::Duration(1.0).sleep();
   ros::Rate rate(10);
-  // Wait until finishing expansion resetting
-  for (int i = 0; i < 40; ++i)
+  for (int i = 0; i < 100; ++i)
   {
     rate.sleep();
     ros::spinOnce();
-    if (status_ && status_->status == mcl_3dl_msgs::Status::EXPANSION_RESETTING)
-      i = 0;
     pub_cloud_.publish(generateCloudMsg());
     pub_imu_.publish(generateImuMsg());
     pub_odom_.publish(generateOdomMsg());
   }
   ASSERT_TRUE(ros::ok());
 
-  ASSERT_TRUE(static_cast<bool>(status_));
-  ASSERT_TRUE(static_cast<bool>(poses_));
+  ASSERT_TRUE(static_cast<bool>(pose_cov_));
 
-  ASSERT_TRUE(
-      findTruePose(tf2::Transform(
-          tf2::Quaternion(0, 0, 0, 1),
-          tf2::Vector3(offset_x, offset_y, offset_z))));
-}
-
-TEST_F(ExpansionResetting, ManualExpand)
-{
-  const float offset_x = 1;
-  const float offset_y = 0;
-  const float offset_z = 0;
-  pub_mapcloud_.publish(generateMapMsg(offset_x, offset_y, offset_z));
-
-  ASSERT_TRUE(ros::ok());
-  ros::Rate rate(10);
-
-  // Ensure that the node is not in expansion resetting mode
-  for (int i = 0; i < 40; ++i)
-  {
-    rate.sleep();
-    ros::spinOnce();
-    if (i > 5 && status_ && status_->status != mcl_3dl_msgs::Status::EXPANSION_RESETTING)
-      break;
-
-    pub_cloud_.publish(generateCloudMsg());
-    pub_imu_.publish(generateImuMsg());
-    pub_odom_.publish(generateOdomMsg());
-  }
-  ASSERT_TRUE(ros::ok());
-
-  status_ = nullptr;
-  std_srvs::TriggerRequest req;
-  std_srvs::TriggerResponse res;
-  ASSERT_TRUE(src_expansion_resetting_.call(req, res));
-  ros::Duration(0.2).sleep();
-
-  // Wait until finishing expansion resetting
-  for (int i = 0; i < 40; ++i)
-  {
-    rate.sleep();
-    ros::spinOnce();
-    if (status_)
-    {
-      ASSERT_NE(status_->status, mcl_3dl_msgs::Status::EXPANSION_RESETTING);
-    }
-    pub_cloud_.publish(generateCloudMsg());
-    pub_imu_.publish(generateImuMsg());
-    pub_odom_.publish(generateOdomMsg());
-  }
-  ASSERT_TRUE(ros::ok());
-
-  ASSERT_TRUE(static_cast<bool>(status_));
-  ASSERT_TRUE(static_cast<bool>(poses_));
-
-  ASSERT_TRUE(
-      findTruePose(tf2::Transform(
-          tf2::Quaternion(0, 0, 0, 1),
-          tf2::Vector3(offset_x, offset_y, offset_z))));
+  ASSERT_NEAR(pose_cov_->pose.pose.position.x, offset_x, 0.1);
+  ASSERT_NEAR(pose_cov_->pose.pose.position.y, offset_y, 0.1);
+  ASSERT_NEAR(pose_cov_->pose.pose.position.z, offset_z, 0.1);
 }
 
 int main(int argc, char** argv)
 {
   testing::InitGoogleTest(&argc, argv);
-  ros::init(argc, argv, "test_expansion_resetting");
+  ros::init(argc, argv, "test_beam_label");
   ros::NodeHandle nh;  // workaround to keep the test node during the process life time
 
   return RUN_ALL_TESTS();
