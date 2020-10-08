@@ -14,7 +14,7 @@
  *       contributors may be used to endorse or promote products derived from 
  *       this software without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDEDNode BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
  * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
@@ -118,7 +118,7 @@ LidarMeasurementModelLikelihood::filter(
   pc_filtered->width = 1;
   pc_filtered->height = pc_filtered->points.size();
 
-  return sampler_.sample<LidarMeasurementModelBase::PointType>(pc_filtered, num_points_);
+  return sampler_->sample(pc_filtered, num_points_);
 }
 
 LidarMeasurementResult LidarMeasurementModelLikelihood::measure(
