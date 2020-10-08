@@ -14,7 +14,7 @@
  *       contributors may be used to endorse or promote products derived from 
  *       this software without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDEDNode BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
  * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
@@ -60,8 +60,6 @@ private:
   float match_weight_;
   float match_dist_min_;
   float match_dist_flat_;
-
-  PointCloudRandomSampler sampler_;
 
 public:
   inline float getMaxSearchRange() const
