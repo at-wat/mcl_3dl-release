@@ -1,0 +1,12 @@
+Source: ros-noetic-mcl-3dl
+Section: misc
+Priority: optional
+Maintainer: Atsushi Watanabe <atsushi.w@ieee.org>
+Build-Depends: debhelper (>= 9.0.0), libeigen3-dev, ros-noetic-catkin, ros-noetic-diagnostic-updater, ros-noetic-geometry-msgs, ros-noetic-mcl-3dl-msgs, ros-noetic-nav-msgs, ros-noetic-pcl-ros, ros-noetic-roscpp, ros-noetic-roslint, ros-noetic-rostest, ros-noetic-rosunit, ros-noetic-sensor-msgs, ros-noetic-std-msgs, ros-noetic-std-srvs, ros-noetic-tf2, ros-noetic-tf2-geometry-msgs, ros-noetic-tf2-ros, ros-noetic-tf2-sensor-msgs, ros-noetic-visualization-msgs
+Homepage: 
+Standards-Version: 3.9.2
+
+Package: ros-noetic-mcl-3dl
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libeigen3-dev, ros-noetic-diagnostic-updater, ros-noetic-geometry-msgs, ros-noetic-mcl-3dl-msgs, ros-noetic-nav-msgs, ros-noetic-pcl-ros, ros-noetic-roscpp, ros-noetic-sensor-msgs, ros-noetic-std-msgs, ros-noetic-std-srvs, ros-noetic-tf2, ros-noetic-tf2-geometry-msgs, ros-noetic-tf2-ros, ros-noetic-tf2-sensor-msgs, ros-noetic-visualization-msgs
+Description: 3-D/6-DOF localization for mobile robots with 3-D LIDAR(s)
