@@ -22,7 +22,7 @@ set(CATKIN_DEPENDS
 
 find_package(catkin REQUIRED COMPONENTS ${CATKIN_DEPENDS})
 find_package(Eigen3 REQUIRED)
-find_package(PCL 1.7.2 REQUIRED
+find_package(PCL 1.8.0 REQUIRED
   COMPONENTS
     core
     filters
@@ -62,10 +62,6 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O1")
 
-if(PCL_VERSION VERSION_LESS 1.8.0)
-  add_definitions(-DBACKPORT_PCL_VOXEL_GRID)
-endif()
-
 # Binary installed pcl provided by Linux distro is built with -march=native
 # which causes a lot of compatibility problems.
 # Define PCL_NO_PRECOMPILE to disable using the binary version.
@@ -89,9 +85,11 @@ if(CATKIN_ENABLE_TESTING)
   find_package(rosunit REQUIRED)
   add_subdirectory(test)
 
-  find_package(roslint REQUIRED)
-  roslint_cpp()
-  roslint_add_test()
+  if(NOT "$ENV{ROS_DISTRO}" STREQUAL "melodic")
+    find_package(roslint REQUIRED)
+    roslint_cpp()
+    roslint_add_test()
+  endif()
 endif()
 
 
