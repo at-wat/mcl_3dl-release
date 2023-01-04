@@ -72,8 +72,6 @@
 #include <pcl/kdtree/kdtree.h>
 #include <pcl/kdtree/kdtree_flann.h>
 
-#include <pcl18_backports/voxel_grid.h>
-
 #include <mcl_3dl/chunked_kdtree.h>
 #include <mcl_3dl/cloud_accum.h>
 #include <mcl_3dl/filter.h>
@@ -116,6 +114,7 @@ protected:
     MyPointRepresentation()
     {
       nr_dimensions_ = 3;
+      trivial_ = true;
     }
 
     virtual void copyToFloatArray(const PointType& p, float* out) const
@@ -147,7 +146,7 @@ protected:
       return;
 
     pc_update_.reset(new pcl::PointCloud<PointType>);
-    pcl::VoxelGrid18<PointType> ds;
+    pcl::VoxelGrid<PointType> ds;
     ds.setInputCloud(pc_tmp);
     ds.setLeafSize(params_.update_downsample_x_, params_.update_downsample_y_, params_.update_downsample_z_);
     ds.filter(*pc_update_);
@@ -362,7 +361,7 @@ protected:
     const auto ts = boost::chrono::high_resolution_clock::now();
 
     pcl::PointCloud<PointType>::Ptr pc_local_full(new pcl::PointCloud<PointType>);
-    pcl::VoxelGrid18<PointType> ds;
+    pcl::VoxelGrid<PointType> ds;
     ds.setInputCloud(pc_local_accum_);
     ds.setLeafSize(params_.downsample_x_, params_.downsample_y_, params_.downsample_z_);
     ds.filter(*pc_local_full);
@@ -1047,7 +1046,7 @@ protected:
     }
     pcl::PointCloud<PointType>::Ptr points(new pcl::PointCloud<PointType>);
 
-    pcl::VoxelGrid18<PointType> ds;
+    pcl::VoxelGrid<PointType> ds;
     ds.setInputCloud(pc_map_);
     ds.setLeafSize(
         params_.global_localization_grid_,
@@ -1056,10 +1055,7 @@ protected:
     ds.filter(*points);
 
     pcl::KdTreeFLANN<PointType>::Ptr kdtree(new pcl::KdTreeFLANN<PointType>);
-    kdtree->setPointRepresentation(
-        boost::dynamic_pointer_cast<
-            pcl::PointRepresentation<PointType>,
-            MyPointRepresentation>(boost::make_shared<MyPointRepresentation>(point_rep_)));
+    kdtree->setPointRepresentation(point_rep_);
     kdtree->setInputCloud(points);
 
     auto pc_filter = [this, kdtree](const PointType& p)
@@ -1172,7 +1168,7 @@ protected:
     pc_map_.reset(new pcl::PointCloud<PointType>);
     pc_map2_.reset();
     pc_update_.reset();
-    pcl::VoxelGrid18<PointType> ds;
+    pcl::VoxelGrid<PointType> ds;
     ds.setInputCloud(map_cloud);
     ds.setLeafSize(params_.map_downsample_x_, params_.map_downsample_y_, params_.map_downsample_z_);
     ds.filter(*pc_map_);
@@ -1194,7 +1190,7 @@ protected:
     ROS_INFO("map received");
 
     pcl::PointCloud<PointType>::Ptr pc_tmp(new pcl::PointCloud<PointType>);
-    if (pcl::io::loadPCDFile<PointType> (req.pcd_path, *pc_tmp) == -1)
+    if (pcl::io::loadPCDFile<PointType>(req.pcd_path, *pc_tmp) == -1)
     {
       ROS_ERROR_STREAM("Couldn't read file " << req.pcd_path);
       has_map_ = false;
@@ -1217,6 +1213,7 @@ public:
     , tfl_(tfbuf_)
     , cnt_measure_(0)
     , global_localization_fix_cnt_(0)
+    , point_rep_(new MyPointRepresentation)
     , engine_(seed_gen_())
   {
   }
@@ -1284,7 +1281,7 @@ public:
         pnh_, "expansion_resetting", &MCL3dlNode::cbExpansionReset, this);
     srv_load_pcd_ = nh_.advertiseService("load_pcd", &MCL3dlNode::cbLoadPCD, this);
 
-    point_rep_.setRescaleValues(params_.dist_weight_.data());
+    point_rep_->setRescaleValues(params_.dist_weight_.data());
 
     pf_.reset(new pf::ParticleFilter<State6DOF,
                                      float,
@@ -1350,10 +1347,7 @@ public:
     ROS_DEBUG("max_search_radius: %0.3f", max_search_radius);
     kdtree_.reset(new ChunkedKdtree<PointType>(params_.map_chunk_, max_search_radius));
     kdtree_->setEpsilon(params_.map_grid_min_ / 16);
-    kdtree_->setPointRepresentation(
-        boost::dynamic_pointer_cast<
-            pcl::PointRepresentation<PointType>,
-            MyPointRepresentation>(boost::make_shared<MyPointRepresentation>(point_rep_)));
+    kdtree_->setPointRepresentation(point_rep_);
 
     map_update_timer_ = nh_.createTimer(
         *params_.map_update_interval_,
@@ -1456,7 +1450,7 @@ protected:
   diagnostic_updater::Updater diag_updater_;
   mcl_3dl_msgs::Status status_;
 
-  MyPointRepresentation point_rep_;
+  MyPointRepresentation::Ptr point_rep_;
 
   pcl::PointCloud<PointType>::Ptr pc_map_;
   pcl::PointCloud<PointType>::Ptr pc_map2_;
@@ -1470,7 +1464,8 @@ protected:
 
   std::map<
       std::string,
-      LidarMeasurementModelBase::Ptr> lidar_measurements_;
+      LidarMeasurementModelBase::Ptr>
+      lidar_measurements_;
   ImuMeasurementModelBase::Ptr imu_measurement_model_;
   MotionPredictionModelBase::Ptr motion_prediction_model_;
 
