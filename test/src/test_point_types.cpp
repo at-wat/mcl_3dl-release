@@ -32,8 +32,6 @@
 #include <pcl_ros/point_cloud.h>
 #include <pcl/filters/voxel_grid.h>
 
-#include <pcl18_backports/voxel_grid.h>
-
 #include <mcl_3dl/point_types.h>
 
 TEST(PointTypes, VoxelGrid)
@@ -57,14 +55,14 @@ TEST(PointTypes, VoxelGrid)
   pc->points[2].label = 4;
 
   pcl::PointCloud<mcl_3dl::PointXYZIL>::Ptr pc2(new pcl::PointCloud<mcl_3dl::PointXYZIL>);
-  pcl::VoxelGrid18<mcl_3dl::PointXYZIL> ds;
+  pcl::VoxelGrid<mcl_3dl::PointXYZIL> ds;
   ds.setInputCloud(pc);
   ds.setLeafSize(0.1, 0.1, 0.1);
   ds.filter(*pc2);
 
   ASSERT_EQ(pc2->size(), 2u);
   int num_1(0), num_4(0);
-  for (auto &p : *pc2)
+  for (auto& p : *pc2)
   {
     switch (p.label)
     {
@@ -93,7 +91,7 @@ TEST(PointTypes, VoxelGrid)
   ASSERT_TRUE(num_1 == 1 && num_4 == 1);
 }
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
   testing::InitGoogleTest(&argc, argv);
 
